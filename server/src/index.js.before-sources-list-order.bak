@@ -1,0 +1,614 @@
+import { createServer } from 'node:http';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { initSubscriptionStore, listSubscriptions, listSubscriptionCatalog, createSubscription, getSubscription, updateSubscription, updateSubscriptionDetails, deleteSubscription, commitSubscriptionRefresh, importLocalSubscription } from './subscriptionStore.js';
+import { initSourceOrderStore, ensureSourceOrderKeys, orderSourcesByPriority } from './sourceOrderStore.js';
+import { fetchSubscriptionConfig, validateSubscriptionConfig } from './subscriptionRefresh.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DATA_DIR = path.join(ROOT, 'data');
+const CONFIG_PATH = path.join(DATA_DIR, 'active-config.json');
+const SEED_PATH = path.join(DATA_DIR, 'feimao.config.json');
+const SPIDER_JAR_PATH = path.resolve(ROOT, 'spiders', 'feimao-spider.dex.jar');
+const PORT = Number(process.env.PORT || 8787);
+const SPIDER_RUNTIME_URL = (process.env.CATVOD_RUNTIME_URL || 'http://127.0.0.1:9978').replace(/\/$/, '');
+const SPIDER_TIMEOUT_MS = Number(process.env.CATVOD_TIMEOUT_MS || 60_000);
+
+// 第一阶段只启用 DEX 中已确认存在、且配置里有对应站点的三个视频源。
+// 后续每验证通过一个源，再加入 CATVOD_SITE_KEYS 即可，不需要改 UI。
+const ENABLED_SITE_KEYS = new Set(
+  (process.env.CATVOD_SITE_KEYS || '厂长,荐片,csp_Dm84')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean),
+);
+// 独立 CMS 源池中允许通过 Node 服务端访问的站点。
+const ENABLED_SOURCE_POOL_KEYS = new Set(
+    (process.env.CATVOD_SOURCE_POOL_KEYS || 'cms_wujin,cms_lzi')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean),
+);
+let activeConfig = null;
+let activeConfigName = '肥猫配置';
+let runtimeSyncState = {
+  ok: false,
+  syncedSites: 0,
+  message: '尚未连接 CatVod 兼容服务',
+  lastSyncedAt: null,
+};
+
+const MEDIA_API = new Set([
+  'csp_Duopan', 'csp_Czsapp', 'csp_Jpys', 'csp_Jianpian', 'csp_SaoHuo',
+  'csp_Gz360', 'csp_SP360', 'csp_Dm84', 'csp_Gulu', 'csp_Bili',
+  'csp_AppQi', 'csp_AppDrama2', 'csp_AppRJ', 'csp_AppYQK', 'csp_Hxq',
+]);
+const NON_MEDIA_WORDS = /豆瓣|配置|网盘|直播|体育|音乐|\bMV\b|教学|教育|课堂|启蒙|push/i;
+const ANIME_WORDS = /动漫|番剧/i;
+
+function classifySite(site) {
+  const label = `${site.key ?? ''} ${site.name ?? ''}`;
+  if (NON_MEDIA_WORDS.test(label)) return 'other';
+  if (ANIME_WORDS.test(label) || site.api === 'csp_Dm84') return 'anime';
+  if (MEDIA_API.has(site.api) && site.type === 3) return 'video';
+  return 'other';
+}
+
+function safeSite(site) {
+  return {
+    key: String(site.key ?? ''),
+    name: String(site.name ?? site.key ?? '未命名源'),
+    type: Number(site.type ?? -1),
+    api: String(site.api ?? ''),
+    category: classifySite(site),
+    searchable: site.searchable === 1 || site.searchable === true,
+    quickSearch: site.quickSearch === 1 || site.quickSearch === true,
+    filterable: site.filterable === 1 || site.filterable === true,
+    runtimeSupported: ENABLED_SITE_KEYS.has(String(site.key ?? '')),
+  };
+}
+
+function validateConfig(config) {
+  if (!config || typeof config !== 'object' || !Array.isArray(config.sites)) {
+    throw new Error('配置格式不正确：缺少 sites 数组');
+  }
+  if (config.sites.length === 0) throw new Error('配置中没有可用站点');
+  return config;
+}
+
+async function loadConfig() {
+  await mkdir(DATA_DIR, { recursive: true });
+  for (const candidate of [CONFIG_PATH, SEED_PATH]) {
+    try {
+      const parsed = JSON.parse(await readFile(candidate, 'utf8'));
+      activeConfig = validateConfig(parsed);
+      activeConfigName = candidate === CONFIG_PATH ? '已导入配置' : '肥猫配置（内置初始配置）';
+      return;
+    } catch (error) {
+      if (error.code !== 'ENOENT') console.error(`读取配置失败 ${candidate}:`, error.message);
+    }
+  }
+}
+
+async function readBody(req) {
+  let raw = '';
+  for await (const chunk of req) {
+    raw += chunk;
+    if (raw.length > 2_000_000) throw new Error('请求内容过大');
+  }
+  return raw ? JSON.parse(raw) : {};
+}
+
+function corsHeaders() {
+  return {
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    'access-control-expose-headers': 'x-spider-error',
+  };
+}
+
+function send(res, status, data) {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', ...corsHeaders() });
+  res.end(JSON.stringify(data));
+}
+
+function sendRaw(res, status, body, contentType = 'application/json; charset=utf-8', spiderError = null) {
+  const headers = { 'content-type': contentType, ...corsHeaders() };
+  if (spiderError) headers['x-spider-error'] = spiderError;
+  res.writeHead(status, headers);
+  res.end(body || '{}');
+}
+
+function getSupportedSites(config = activeConfig) {
+  if (!config?.sites) return [];
+  return config.sites.filter(site =>
+    ENABLED_SITE_KEYS.has(String(site.key ?? '')) &&
+    String(site.api ?? '').startsWith('csp_'),
+  );
+}
+
+/**
+ * 把当前肥猫配置同步给独立 CatVod 兼容服务。
+ * 肥猫配置的顶层 spider 字段是伪装成图片 URL 的 DEX JAR，
+ * 项目中已有完全匹配 MD5 的本地副本，因此这里使用本地 JAR 路径，避免重复下载。
+ */
+async function syncSpiderRuntime(config = activeConfig) {
+  const supportedSites = getSupportedSites(config);
+  await ensureSourceOrderKeys(supportedSites.map(site => String(site.key ?? '')));
+  const selectedSites = orderSourcesByPriority(supportedSites);
+  if (!selectedSites.length) {
+    runtimeSyncState = {
+      ok: false,
+      syncedSites: 0,
+      message: `当前配置没有找到已启用的源：${[...ENABLED_SITE_KEYS].join('、')}`,
+      lastSyncedAt: null,
+    };
+    return runtimeSyncState;
+  }
+
+  const runtimeConfig = {
+    ...config,
+    spider: SPIDER_JAR_PATH,
+    sites: selectedSites.map(site => ({
+      ...site,
+      jar: SPIDER_JAR_PATH,
+    })),
+  };
+
+  try {
+    const response = await fetch(`${SPIDER_RUNTIME_URL}/api/config/save`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(runtimeConfig),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const body = await response.text();
+    if (!response.ok) throw new Error(`CatVod 配置同步失败：HTTP ${response.status} ${body.slice(0, 300)}`);
+
+    runtimeSyncState = {
+      ok: true,
+      syncedSites: selectedSites.length,
+      message: '已将启用的影视源同步到 CatVod 兼容服务',
+      lastSyncedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    runtimeSyncState = {
+      ok: false,
+      syncedSites: 0,
+      message: error.message || 'CatVod 兼容服务连接失败',
+      lastSyncedAt: null,
+    };
+  }
+
+  return runtimeSyncState;
+}
+
+async function ensureRuntimeSynced() {
+  if (!runtimeSyncState.ok && activeConfig) await syncSpiderRuntime(activeConfig);
+  return runtimeSyncState;
+}
+
+async function getRuntimeStatus() {
+  const sync = await ensureRuntimeSynced();
+  try {
+    const [healthResponse, statusResponse] = await Promise.all([
+      fetch(`${SPIDER_RUNTIME_URL}/health`, { signal: AbortSignal.timeout(5_000) }),
+      fetch(`${SPIDER_RUNTIME_URL}/api/status`, { signal: AbortSignal.timeout(5_000) }),
+    ]);
+    const healthText = await healthResponse.text();
+    const statusText = await statusResponse.text();
+    if (!healthResponse.ok) throw new Error(`运行服务健康检查失败：HTTP ${healthResponse.status}`);
+
+    let health = {};
+    let detail = {};
+    try { health = JSON.parse(healthText); } catch {}
+    try { detail = JSON.parse(statusText); } catch {}
+
+    return {
+      ready: Boolean(healthResponse.ok && sync.ok),
+      runtime: 'tvbox-spider-server',
+      runtimeUrl: SPIDER_RUNTIME_URL,
+      message: sync.ok ? 'CatVod 兼容服务已连接，已同步试运行源。' : sync.message,
+      syncedSites: sync.syncedSites,
+      enabledSiteKeys: [...ENABLED_SITE_KEYS],
+      health,
+      detail,
+    };
+  } catch (error) {
+    return {
+      ready: false,
+      runtime: 'tvbox-spider-server',
+      runtimeUrl: SPIDER_RUNTIME_URL,
+      message: error.message || 'CatVod 兼容服务尚未启动',
+      syncedSites: 0,
+      enabledSiteKeys: [...ENABLED_SITE_KEYS],
+    };
+  }
+}
+
+async function importConfig(body) {
+  let config;
+  if (body.config && typeof body.config === 'object') {
+    config = body.config;
+  } else if (typeof body.configUrl === 'string') {
+    const url = new URL(body.configUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('只支持 HTTP 或 HTTPS 配置地址');
+    const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    if (!response.ok) throw new Error(`获取配置失败：HTTP ${response.status}`);
+    config = await response.json();
+  } else {
+    throw new Error('请提供 configUrl 或 config');
+  }
+  validateConfig(config);
+  await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  activeConfig = config;
+  activeConfigName = String(body.name || '已导入配置').slice(0, 80);
+  const runtimeSync = await syncSpiderRuntime(config);
+  return { ...getConfigSummary(), runtimeSync };
+}
+
+function getConfigSummary() {
+  if (!activeConfig) return { configured: false, name: null, totalSites: 0, videoSites: 0, animeSites: 0 };
+  const sites = activeConfig.sites.map(safeSite);
+  return {
+    configured: true,
+    name: activeConfigName,
+    totalSites: sites.length,
+    videoSites: sites.filter(s => s.category === 'video').length,
+    animeSites: sites.filter(s => s.category === 'anime').length,
+    runtimeSupportedSites: sites.filter(s => s.runtimeSupported).length,
+  };
+}
+
+async function proxySpiderRequest(siteKey, url, res) {
+  const isSourcePoolSite = ENABLED_SOURCE_POOL_KEYS.has(siteKey);
+
+  // 普通肥猫站点从 activeConfig 查找；
+  // cms_* 源池站点由 CatVod Runtime 自己管理。
+  const site = activeConfig?.sites?.find(
+      item => String(item.key ?? '') === siteKey,
+  );
+
+  if (!site && !isSourcePoolSite) {
+    return send(res, 404, { error: `影视源不存在：${siteKey}` });
+  }
+
+  if (!isSourcePoolSite && !ENABLED_SITE_KEYS.has(siteKey)) {
+    return send(res, 501, {
+      error: '该影视源尚未加入第一阶段兼容名单',
+      siteKey,
+      enabledSiteKeys: [...ENABLED_SITE_KEYS],
+    });
+  }
+
+  const sync = await ensureRuntimeSynced();
+
+  if (!sync.ok) {
+    return send(res, 503, {
+      error: sync.message,
+      runtime: 'tvbox-spider-server',
+    });
+  }
+
+  try {
+    const target = new URL(
+        `${SPIDER_RUNTIME_URL}/api/spider/${encodeURIComponent(siteKey)}`,
+    );
+
+    target.search = url.search;
+
+    const upstream = await fetch(target, {
+      signal: AbortSignal.timeout(SPIDER_TIMEOUT_MS),
+    });
+
+    const body = await upstream.text();
+
+    return sendRaw(
+        res,
+        upstream.status,
+        body,
+        upstream.headers.get('content-type') ||
+        'application/json; charset=utf-8',
+        upstream.headers.get('x-spider-error'),
+    );
+  } catch (error) {
+    return send(res, 502, {
+      error: error.message || '调用 CatVod Spider 失败',
+    });
+  }
+}
+
+const server = createServer(async (req, res) => {
+  if (req.method === 'OPTIONS') return send(res, 204, {});
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  try {
+    if (req.method === 'GET' && url.pathname === '/health') {
+      return send(res, 200, { ok: true, service: 'MarcoMovie Spider API', version: '0.2.0' });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/subscriptions/catalog') {
+      const sources = listSubscriptionCatalog();
+      return send(res, 200, {
+        ok: true,
+        total: sources.length,
+        sources,
+      });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/subscriptions') {
+      const subscriptions = listSubscriptions();
+      return send(res, 200, {
+        ok: true,
+        total: subscriptions.length,
+        subscriptions,
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/subscriptions') {
+      const subscription = await createSubscription(await readBody(req));
+      return send(res, 201, {
+        ok: true,
+        subscription,
+      });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/subscriptions/import') {
+      const input = await readBody(req);
+      validateSubscriptionConfig(input?.config);
+      const subscription = await importLocalSubscription(input);
+      return send(res, 201, {
+        ok: true,
+        subscription,
+      });
+    }
+    const editMatch = url.pathname.match(
+      /^\/api\/subscriptions\/([0-9a-f-]{36})$/i,
+    );
+
+    if (req.method === 'PUT' && editMatch) {
+      const subscriptionId = editMatch[1];
+      const subscription = getSubscription(subscriptionId);
+
+      if (!subscription) {
+        return send(res, 404, {
+          ok: false,
+          error: '订阅不存在',
+        });
+      }
+
+      const updated = await updateSubscriptionDetails(
+        subscriptionId,
+        await readBody(req),
+      );
+
+      return send(res, 200, {
+        ok: true,
+        subscription: updated,
+      });
+    }
+    const toggleMatch = url.pathname.match(
+      /^\/api\/subscriptions\/([0-9a-f-]{36})\/toggle$/i,
+    );
+
+    if (req.method === 'POST' && toggleMatch) {
+      const subscriptionId = toggleMatch[1];
+      const body = await readBody(req);
+
+      if (!body || typeof body.enabled !== 'boolean') {
+        return send(res, 400, {
+          ok: false,
+          error: 'enabled 必须是布尔值',
+        });
+      }
+
+      const subscription = getSubscription(subscriptionId);
+
+      if (!subscription) {
+        return send(res, 404, {
+          ok: false,
+          error: '订阅不存在',
+        });
+      }
+
+      const updated = await updateSubscription(subscriptionId, {
+        enabled: body.enabled,
+      });
+
+      return send(res, 200, {
+        ok: true,
+        subscription: updated,
+      });
+    }
+    const deleteMatch = url.pathname.match(
+      /^\/api\/subscriptions\/([0-9a-f-]{36})$/i,
+    );
+
+    if (req.method === 'DELETE' && deleteMatch) {
+      const subscriptionId = deleteMatch[1];
+      const existing = getSubscription(subscriptionId);
+
+      if (!existing) {
+        return send(res, 404, {
+          ok: false,
+          error: '订阅不存在',
+        });
+      }
+
+      try {
+        const subscription = await deleteSubscription(subscriptionId);
+
+        return send(res, 200, {
+          ok: true,
+          subscription,
+        });
+      } catch (error) {
+        return send(res, 500, {
+          ok: false,
+          error: error.message || '删除订阅失败',
+        });
+      }
+    }
+    const refreshMatch = url.pathname.match(
+      /^\/api\/subscriptions\/([0-9a-f-]{36})\/refresh$/i,
+    );
+
+    if (req.method === 'POST' && refreshMatch) {
+      const subscriptionId = refreshMatch[1];
+      const subscription = getSubscription(subscriptionId);
+
+      if (!subscription) {
+        return send(res, 404, {
+          ok: false,
+          error: '订阅不存在',
+        });
+      }
+
+      try {
+        const refreshed = await fetchSubscriptionConfig(subscription.url);
+
+        const result = await commitSubscriptionRefresh(
+          subscriptionId,
+          refreshed.config,
+          {
+            status: 'success',
+            sourceCount: refreshed.sourceCount,
+            lastRefreshedAt: Date.now(),
+            lastError: '',
+          },
+        );
+
+        return send(res, 200, {
+          ok: true,
+          subscription: result.subscription,
+          sourceCount: refreshed.sourceCount,
+        });
+      } catch (error) {
+        const refreshError = String(
+          error?.message || '订阅刷新失败',
+        ).slice(0, 2000);
+
+        try {
+          const updated = await updateSubscription(subscriptionId, {
+            status: 'error',
+            lastError: refreshError,
+          });
+
+          return send(res, 502, {
+            ok: false,
+            error: refreshError,
+            subscription: updated,
+          });
+        } catch (stateError) {
+          return send(res, 500, {
+            ok: false,
+            error: refreshError,
+            stateUpdateError: String(
+              stateError?.message || '订阅错误状态保存失败',
+            ),
+          });
+        }
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/config') {
+      return send(res, 200, getConfigSummary());
+    }
+    if (req.method === 'POST' && url.pathname === '/api/config/import') {
+      const summary = await importConfig(await readBody(req));
+      return send(res, 200, { ok: true, ...summary });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/sources') {
+      if (!activeConfig) {
+        return send(res, 503, { error: '尚未导入配置' });
+      }
+
+      const category = url.searchParams.get('category');
+
+      // 原有肥猫配置中的影视源
+      const configSites = activeConfig.sites.map(safeSite);
+
+      try {
+        // 从 CatVod Runtime 获取独立源池
+        const response = await fetch(
+            `${SPIDER_RUNTIME_URL}/api/sources`,
+            { signal: AbortSignal.timeout(10_000) },
+        );
+
+        if (!response.ok) {
+          throw new Error(`获取 CatVod 源池失败：HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const sourcePoolSites = (data.sources || [])
+            .filter(source => source.enabled === true)
+            .filter(source => {
+              const siteKey = String(source.siteKey || `cms_${source.key}`);
+              return ENABLED_SOURCE_POOL_KEYS.has(siteKey);
+            })
+            .map(source => {
+              const siteKey = String(source.siteKey || `cms_${source.key}`);
+
+              return {
+                key: siteKey,
+                name: String(source.name || siteKey),
+                type: source.type,
+                api: String(source.api || ''),
+                category: 'video',
+                searchable: source.searchable === 1 || source.searchable === true,
+                quickSearch: false,
+                filterable: true,
+                runtimeSupported: true,
+              };
+            });
+
+        const mergedSites = [
+          ...configSites,
+          ...sourcePoolSites,
+        ];
+
+        const filteredSites = mergedSites.filter(
+            site => !category || site.category === category,
+        );
+
+        return send(res, 200, {
+          total: filteredSites.length,
+          sources: filteredSites,
+        });
+      } catch (error) {
+        return send(res, 502, {
+          error: error.message || '获取影视源列表失败',
+        });
+      }
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/spider/status') {
+      return send(res, 200, await getRuntimeStatus());
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/spider/')) {
+      const encodedKey = url.pathname.slice('/api/spider/'.length);
+      const siteKey = decodeURIComponent(encodedKey);
+      return proxySpiderRequest(siteKey, url, res);
+    }
+    return send(res, 404, { error: 'Not found' });
+  } catch (error) {
+    return send(res, 400, { error: error.message || '请求失败' });
+  }
+});
+
+const subscriptionStoreState = await initSubscriptionStore();
+console.log('订阅存储已初始化：', subscriptionStoreState.count, '条');
+
+const sourceOrderStoreState = await initSourceOrderStore();
+console.log('数据源优先级存储已初始化：', sourceOrderStoreState.count, '个');
+
+await loadConfig();
+if (activeConfig) {
+  const sync = await syncSpiderRuntime(activeConfig);
+  if (!sync.ok) console.warn('CatVod runtime 尚未同步：', sync.message);
+}
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`MarcoMovie Spider API listening on http://0.0.0.0:${PORT}`);
+  console.log('Config:', getConfigSummary());
+  console.log('CatVod runtime:', SPIDER_RUNTIME_URL);
+});

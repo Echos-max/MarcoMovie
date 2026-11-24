@@ -1,0 +1,865 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DATA_DIR = path.resolve(CURRENT_DIR, '../data');
+const STORE_PATH = path.join(DATA_DIR, 'subscriptions.json');
+const SNAPSHOT_DIR = path.join(DATA_DIR, 'subscription-snapshots');
+
+let store = null;
+let writeQueue = Promise.resolve();
+
+function createEmptyStore() {
+  return {
+    version: 2,
+    subscriptions: [],
+    catalog: [],
+  };
+}
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key =>
+      `${JSON.stringify(key)}:${stableStringify(value[key])}`
+    ).join(',')}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function getSiteIdentity(site) {
+  const identityData = {
+    type: site.type,
+    api: String(site.api).trim(),
+    ext: Object.prototype.hasOwnProperty.call(site, 'ext')
+      ? site.ext
+      : null,
+  };
+
+  return createHash('sha256')
+    .update(stableStringify(identityData))
+    .digest('hex');
+}
+
+function buildCatalog(subscriptions, configsBySubscriptionId) {
+  const catalogMap = new Map();
+
+  for (const subscription of subscriptions) {
+    const config = configsBySubscriptionId.get(subscription.id);
+
+    if (!config || !Array.isArray(config.sites)) {
+      continue;
+    }
+
+    for (const site of config.sites) {
+      const identity = getSiteIdentity(site);
+
+      if (!catalogMap.has(identity)) {
+        catalogMap.set(identity, {
+          id: identity,
+          identity,
+          variants: [],
+        });
+      }
+
+      catalogMap.get(identity).variants.push({
+        subscriptionId: subscription.id,
+        site,
+      });
+    }
+  }
+
+  return Array.from(catalogMap.values()).sort((a, b) =>
+    a.identity.localeCompare(b.identity)
+  );
+}
+
+function validateStore(data) {
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    ![1, 2].includes(data.version) ||
+    !Array.isArray(data.subscriptions)
+  ) {
+    throw new Error('订阅清单格式错误，拒绝覆盖现有文件');
+  }
+
+  const subscriptionIds = new Set();
+
+  for (const item of data.subscriptions) {
+    if (
+      !item ||
+      typeof item !== 'object' ||
+      typeof item.id !== 'string' ||
+      typeof item.name !== 'string' ||
+      typeof item.url !== 'string'
+    ) {
+      throw new Error('订阅清单包含无效记录，拒绝覆盖现有文件');
+    }
+
+    if (subscriptionIds.has(item.id)) {
+      throw new Error('订阅清单包含重复 ID，拒绝覆盖现有文件');
+    }
+
+    subscriptionIds.add(item.id);
+  }
+
+  if (data.version === 2) {
+    if (!Array.isArray(data.catalog)) {
+      throw new Error('订阅聚合目录格式错误，拒绝覆盖现有文件');
+    }
+
+    for (const source of data.catalog) {
+      if (
+        !source ||
+        typeof source !== 'object' ||
+        typeof source.id !== 'string' ||
+        typeof source.identity !== 'string' ||
+        !Array.isArray(source.variants)
+      ) {
+        throw new Error('订阅聚合目录包含无效记录，拒绝覆盖现有文件');
+      }
+
+      for (const variant of source.variants) {
+        if (
+          !variant ||
+          typeof variant.subscriptionId !== 'string' ||
+          !subscriptionIds.has(variant.subscriptionId) ||
+          !variant.site ||
+          typeof variant.site !== 'object' ||
+          Array.isArray(variant.site)
+        ) {
+          throw new Error('订阅来源归属记录格式错误，拒绝覆盖现有文件');
+        }
+      }
+    }
+  }
+
+  return data;
+}
+
+async function writeStore(nextStore = store) {
+  const temporaryPath = `${STORE_PATH}.${process.pid}.${randomUUID()}.tmp`;
+  const content = `${JSON.stringify(nextStore, null, 2)}\n`;
+
+  try {
+    await writeFile(temporaryPath, content, 'utf8');
+    await rename(temporaryPath, STORE_PATH);
+  } catch (error) {
+    const { unlink } = await import('node:fs/promises');
+    await unlink(temporaryPath).catch(() => {});
+    throw error;
+  }
+}
+
+function enqueueWrite(operation) {
+  const task = writeQueue.then(operation);
+  writeQueue = task.catch(() => {});
+  return task;
+}
+
+export async function initSubscriptionStore() {
+  await mkdir(DATA_DIR, { recursive: true });
+  await mkdir(SNAPSHOT_DIR, { recursive: true });
+
+  let content;
+
+  try {
+    content = await readFile(STORE_PATH, 'utf8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+
+    const emptyStore = createEmptyStore();
+    await writeStore(emptyStore);
+    store = emptyStore;
+
+    return {
+      count: store.subscriptions.length,
+      catalogCount: store.catalog.length,
+      snapshotDirectory: SNAPSHOT_DIR,
+    };
+  }
+
+  let parsedStore;
+
+  try {
+    parsedStore = JSON.parse(content);
+  } catch (error) {
+    throw new Error(`订阅清单 JSON 解析失败：${error.message}`);
+  }
+
+  const validatedStore = validateStore(parsedStore);
+
+  if (validatedStore.version === 1) {
+    const configsBySubscriptionId = new Map();
+
+    for (const subscription of validatedStore.subscriptions) {
+      const snapshotPath = getSubscriptionSnapshotPath(subscription.id);
+      let snapshotContent;
+
+      try {
+        snapshotContent = await readFile(snapshotPath, 'utf8');
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          continue;
+        }
+
+        throw error;
+      }
+
+      let config;
+
+      try {
+        config = JSON.parse(snapshotContent);
+      } catch (error) {
+        throw new Error(
+          `订阅 ${subscription.name} 的快照 JSON 解析失败：${error.message}`
+        );
+      }
+
+      if (
+        !config ||
+        typeof config !== 'object' ||
+        Array.isArray(config) ||
+        !Array.isArray(config.sites)
+      ) {
+        throw new Error(
+          `订阅 ${subscription.name} 的快照格式错误，拒绝迁移。`
+        );
+      }
+
+      for (const site of config.sites) {
+        if (
+          !site ||
+          typeof site !== 'object' ||
+          Array.isArray(site) ||
+          !['string', 'number'].includes(typeof site.type) ||
+          typeof site.api !== 'string' ||
+          !site.api.trim()
+        ) {
+          throw new Error(
+            `订阅 ${subscription.name} 的快照包含无效站点，拒绝迁移。`
+          );
+        }
+      }
+
+      configsBySubscriptionId.set(subscription.id, config);
+    }
+
+    const migratedStore = {
+      version: 2,
+      subscriptions: validatedStore.subscriptions,
+      catalog: buildCatalog(
+        validatedStore.subscriptions,
+        configsBySubscriptionId
+      ),
+    };
+
+    await writeStore(migratedStore);
+    store = migratedStore;
+  } else {
+    store = validatedStore;
+  }
+
+  return {
+    count: store.subscriptions.length,
+    catalogCount: store.catalog.length,
+    snapshotDirectory: SNAPSHOT_DIR,
+  };
+}
+function ensureInitialized() {
+  if (!store) {
+    throw new Error('订阅存储尚未初始化，请先调用 initSubscriptionStore()');
+  }
+}
+
+export function listSubscriptions() {
+  ensureInitialized();
+
+  return store.subscriptions.map(item => ({ ...item }));
+}
+
+export function getSubscription(id) {
+  ensureInitialized();
+
+  const item = store.subscriptions.find(entry => entry.id === id);
+  return item ? { ...item } : null;
+}
+
+export function listSubscriptionCatalog() {
+  ensureInitialized();
+
+  const enabledSubscriptionIds = new Set(
+    store.subscriptions
+      .filter(subscription => subscription.enabled === true)
+      .map(subscription => subscription.id),
+  );
+
+  return store.catalog.flatMap(source => {
+    const variants = source.variants
+      .filter(variant => enabledSubscriptionIds.has(variant.subscriptionId))
+      .map(variant => ({
+        subscriptionId: variant.subscriptionId,
+        site: JSON.parse(JSON.stringify(variant.site)),
+      }));
+
+    return variants.length > 0
+      ? [{
+          id: source.id,
+          identity: source.identity,
+          variants,
+        }]
+      : [];
+  });
+}
+
+export async function createSubscription(input) {
+  ensureInitialized();
+
+  const name = String(input?.name || '').trim();
+  const url = String(input?.url || '').trim();
+
+  if (!name) {
+    throw new Error('订阅名称不能为空');
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error('订阅地址格式不正确');
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error('订阅地址只允许使用 HTTP 或 HTTPS');
+  }
+
+  return enqueueWrite(async () => {
+    const now = Date.now();
+
+    const subscription = {
+      id: randomUUID(),
+      name,
+      url,
+      sourceType: 'url',
+      enabled: true,
+      status: 'pending',
+      sourceCount: 0,
+      lastRefreshedAt: null,
+      lastError: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const previousSubscriptions = store.subscriptions;
+    store.subscriptions = [...previousSubscriptions, subscription];
+
+    try {
+      await writeStore();
+    } catch (error) {
+      store.subscriptions = previousSubscriptions;
+      throw error;
+    }
+
+    return { ...subscription };
+  });
+}
+
+export async function importLocalSubscription(input) {
+  ensureInitialized();
+
+  const name = String(input?.name || '').trim();
+  const config = input?.config;
+
+  if (!name) {
+    throw new Error('订阅名称不能为空');
+  }
+
+  if (
+    !config ||
+    typeof config !== 'object' ||
+    Array.isArray(config) ||
+    !Array.isArray(config.sites) ||
+    config.sites.length === 0
+  ) {
+    throw new Error('本地订阅配置不正确');
+  }
+
+  const serializedConfig = JSON.stringify(config, null, 2);
+
+  if (!serializedConfig) {
+    throw new Error('本地订阅配置序列化失败');
+  }
+
+  return enqueueWrite(async () => {
+    const previousStore = store;
+    const now = Date.now();
+
+    const subscription = {
+      id: randomUUID(),
+      name,
+      url: '',
+      sourceType: 'file',
+      enabled: true,
+      status: 'success',
+      sourceCount: config.sites.length,
+      lastRefreshedAt: null,
+      lastError: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const nextSubscriptions = [
+      ...previousStore.subscriptions,
+      subscription,
+    ];
+
+    const configsBySubscriptionId = new Map();
+
+    for (const source of previousStore.catalog) {
+      for (const variant of source.variants) {
+        if (!configsBySubscriptionId.has(variant.subscriptionId)) {
+          configsBySubscriptionId.set(variant.subscriptionId, {
+            sites: [],
+          });
+        }
+
+        configsBySubscriptionId
+          .get(variant.subscriptionId)
+          .sites.push(variant.site);
+      }
+    }
+
+    configsBySubscriptionId.set(subscription.id, config);
+
+    const nextStore = {
+      ...previousStore,
+      subscriptions: nextSubscriptions,
+      catalog: buildCatalog(
+        nextSubscriptions,
+        configsBySubscriptionId,
+      ),
+    };
+
+    const snapshotPath = getSubscriptionSnapshotPath(subscription.id);
+    const temporaryPath = `${snapshotPath}.${process.pid}.${randomUUID()}.tmp`;
+    let snapshotInstalled = false;
+
+    try {
+      await writeFile(temporaryPath, `${serializedConfig}\n`, 'utf8');
+      await rename(temporaryPath, snapshotPath);
+      snapshotInstalled = true;
+
+      store = nextStore;
+      await writeStore(nextStore);
+    } catch (error) {
+      store = previousStore;
+
+      if (snapshotInstalled) {
+        await unlink(snapshotPath).catch(() => {});
+      }
+
+      await unlink(temporaryPath).catch(() => {});
+      throw error;
+    }
+
+    return { ...subscription };
+  });
+}
+
+export function getSubscriptionSnapshotPath(id) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) {
+    throw new Error('无效的订阅 ID');
+  }
+
+  return path.join(SNAPSHOT_DIR, `${id}.json`);
+}
+const ALLOWED_SUBSCRIPTION_UPDATES = new Set([
+  'enabled',
+  'status',
+  'sourceCount',
+  'lastRefreshedAt',
+  'lastError',
+]);
+
+export async function updateSubscription(id, changes) {
+  ensureInitialized();
+
+  if (!id || !changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    throw new Error('订阅更新参数不正确');
+  }
+
+  const entries = Object.entries(changes);
+
+  if (entries.length === 0 || entries.some(([key]) => !ALLOWED_SUBSCRIPTION_UPDATES.has(key))) {
+    throw new Error('包含不允许更新的订阅字段');
+  }
+
+  return enqueueWrite(async () => {
+    const index = store.subscriptions.findIndex(item => item.id === id);
+
+    if (index < 0) {
+      throw new Error('订阅不存在');
+    }
+
+    const previousSubscriptions = store.subscriptions;
+    const updatedSubscription = {
+      ...previousSubscriptions[index],
+      ...changes,
+      updatedAt: Date.now(),
+    };
+
+    if (
+      typeof updatedSubscription.enabled !== 'boolean' ||
+      typeof updatedSubscription.status !== 'string' ||
+      !Number.isInteger(updatedSubscription.sourceCount) ||
+      updatedSubscription.sourceCount < 0 ||
+      typeof updatedSubscription.lastError !== 'string'
+    ) {
+      throw new Error('订阅状态字段格式不正确');
+    }
+
+    store.subscriptions = previousSubscriptions.map((item, itemIndex) =>
+      itemIndex === index ? updatedSubscription : item,
+    );
+
+    try {
+      await writeStore();
+    } catch (error) {
+      store.subscriptions = previousSubscriptions;
+      throw error;
+    }
+
+    return { ...updatedSubscription };
+  });
+}
+
+export async function updateSubscriptionDetails(id, changes) {
+  ensureInitialized();
+
+  if (!id || !changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    throw new Error('订阅编辑参数不正确');
+  }
+
+  const entries = Object.entries(changes);
+  const allowedFields = new Set(['name', 'url']);
+
+  if (
+    entries.length === 0 ||
+    entries.some(([key]) => !allowedFields.has(key))
+  ) {
+    throw new Error('只允许编辑订阅名称和地址');
+  }
+
+  const normalizedChanges = {};
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'name')) {
+    if (typeof changes.name !== 'string' || !changes.name.trim()) {
+      throw new Error('订阅名称不能为空');
+    }
+
+    normalizedChanges.name = changes.name.trim();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, 'url')) {
+    if (typeof changes.url !== 'string' || !changes.url.trim()) {
+      throw new Error('订阅地址不能为空');
+    }
+
+    const normalizedUrl = changes.url.trim();
+    let parsedUrl;
+
+    try {
+      parsedUrl = new URL(normalizedUrl);
+    } catch {
+      throw new Error('订阅地址格式不正确');
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new Error('订阅地址只允许使用 HTTP 或 HTTPS');
+    }
+
+    normalizedChanges.url = normalizedUrl;
+  }
+
+  return enqueueWrite(async () => {
+    const index = store.subscriptions.findIndex(item => item.id === id);
+
+    if (index < 0) {
+      throw new Error('订阅不存在');
+    }
+
+    const previousSubscriptions = store.subscriptions;
+    const updatedSubscription = {
+      ...previousSubscriptions[index],
+      ...normalizedChanges,
+      updatedAt: Date.now(),
+    };
+
+    store.subscriptions = previousSubscriptions.map((item, itemIndex) =>
+      itemIndex === index ? updatedSubscription : item,
+    );
+
+    try {
+      await writeStore();
+    } catch (error) {
+      store.subscriptions = previousSubscriptions;
+      throw error;
+    }
+
+    return { ...updatedSubscription };
+  });
+}
+export async function deleteSubscription(id) {
+  ensureInitialized();
+
+  if (!id) {
+    throw new Error('订阅 ID 不正确');
+  }
+
+  const snapshotPath = getSubscriptionSnapshotPath(id);
+
+  return enqueueWrite(async () => {
+    const subscription = store.subscriptions.find(item => item.id === id);
+
+    if (!subscription) {
+      throw new Error('订阅不存在');
+    }
+
+    const nextStore = {
+      ...store,
+      subscriptions: store.subscriptions.filter(item => item.id !== id),
+      catalog: store.catalog
+        .map(source => ({
+          ...source,
+          variants: source.variants.filter(
+            variant => variant.subscriptionId !== id,
+          ),
+        }))
+        .filter(source => source.variants.length > 0),
+    };
+
+    const backupPath = `${snapshotPath}.${process.pid}.${randomUUID()}.bak`;
+    let snapshotBackedUp = false;
+
+    try {
+      await rename(snapshotPath, backupPath);
+      snapshotBackedUp = true;
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    try {
+      await writeStore(nextStore);
+      store = nextStore;
+    } catch (error) {
+      if (snapshotBackedUp) {
+        try {
+          await rename(backupPath, snapshotPath);
+        } catch (restoreError) {
+          throw new Error(
+            `删除订阅失败，且快照恢复失败：${error.message}；${restoreError.message}`,
+          );
+        }
+      }
+
+      throw error;
+    }
+
+    if (snapshotBackedUp) {
+      await unlink(backupPath).catch(() => {});
+    }
+
+    return { ...subscription };
+  });
+}
+export async function saveSubscriptionSnapshot(id, config) {
+  ensureInitialized();
+
+
+  const snapshotPath = getSubscriptionSnapshotPath(id);
+
+  if (!store.subscriptions.some(item => item.id === id)) {
+    throw new Error('订阅不存在，不能保存快照');
+  }
+
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw new Error('订阅快照内容不正确');
+  }
+
+  return enqueueWrite(async () => {
+    const temporaryPath = `${snapshotPath}.${process.pid}.${randomUUID()}.tmp`;
+    const content = `${JSON.stringify(config, null, 2)}\n`;
+
+    try {
+      await writeFile(temporaryPath, content, 'utf8');
+      await rename(temporaryPath, snapshotPath);
+    } catch (error) {
+      const { unlink } = await import('node:fs/promises');
+      await unlink(temporaryPath).catch(() => {});
+      throw error;
+    }
+
+    return snapshotPath;
+  });
+}
+
+export async function commitSubscriptionRefresh(id, config, changes) {
+  ensureInitialized();
+
+  const snapshotPath = getSubscriptionSnapshotPath(id);
+
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw new Error('订阅快照内容不正确');
+  }
+
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    throw new Error('订阅刷新状态参数不正确');
+  }
+
+  const entries = Object.entries(changes);
+
+  if (
+    entries.length === 0 ||
+    entries.some(([key]) => !ALLOWED_SUBSCRIPTION_UPDATES.has(key))
+  ) {
+    throw new Error('包含不允许更新的订阅字段');
+  }
+
+  const serializedConfig = JSON.stringify(config, null, 2);
+
+  if (!serializedConfig) {
+    throw new Error('订阅快照序列化失败');
+  }
+
+  return enqueueWrite(async () => {
+    const index = store.subscriptions.findIndex(item => item.id === id);
+
+    if (index < 0) {
+      throw new Error('订阅不存在');
+    }
+
+    const previousStore = store;
+    const updatedSubscription = {
+      ...previousStore.subscriptions[index],
+      ...changes,
+      updatedAt: Date.now(),
+    };
+
+    if (
+      typeof updatedSubscription.enabled !== 'boolean' ||
+      typeof updatedSubscription.status !== 'string' ||
+      !Number.isInteger(updatedSubscription.sourceCount) ||
+      updatedSubscription.sourceCount < 0 ||
+      !(
+        updatedSubscription.lastRefreshedAt === null ||
+        typeof updatedSubscription.lastRefreshedAt === 'number'
+      ) ||
+      typeof updatedSubscription.lastError !== 'string'
+    ) {
+      throw new Error('订阅刷新状态字段格式不正确');
+    }
+
+    if (!Array.isArray(config.sites)) {
+      throw new Error('订阅快照缺少有效的 sites 数组');
+    }
+
+    const configsBySubscriptionId = new Map();
+
+    for (const source of previousStore.catalog) {
+      for (const variant of source.variants) {
+        if (variant.subscriptionId === id) {
+          continue;
+        }
+
+        if (!configsBySubscriptionId.has(variant.subscriptionId)) {
+          configsBySubscriptionId.set(variant.subscriptionId, {
+            sites: [],
+          });
+        }
+
+        configsBySubscriptionId
+          .get(variant.subscriptionId)
+          .sites.push(variant.site);
+      }
+    }
+
+    configsBySubscriptionId.set(id, config);
+
+    const nextSubscriptions = previousStore.subscriptions.map(
+      (item, itemIndex) =>
+        itemIndex === index ? updatedSubscription : item,
+    );
+
+    const nextStore = {
+      ...previousStore,
+      subscriptions: nextSubscriptions,
+      catalog: buildCatalog(
+        nextSubscriptions,
+        configsBySubscriptionId,
+      ),
+    };
+    const temporaryPath = `${snapshotPath}.${process.pid}.${randomUUID()}.tmp`;
+    const backupPath = `${snapshotPath}.${process.pid}.${randomUUID()}.bak`;
+
+    let hasPreviousSnapshot = false;
+    let snapshotInstalled = false;
+
+    try {
+      await writeFile(temporaryPath, `${serializedConfig}\n`, 'utf8');
+
+      try {
+        await rename(snapshotPath, backupPath);
+        hasPreviousSnapshot = true;
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+
+      await rename(temporaryPath, snapshotPath);
+      snapshotInstalled = true;
+
+      store = nextStore;
+      await writeStore(nextStore);
+    } catch (error) {
+      store = previousStore;
+
+      if (snapshotInstalled) {
+        await unlink(snapshotPath).catch(() => {});
+      }
+
+      if (hasPreviousSnapshot) {
+        try {
+          await rename(backupPath, snapshotPath);
+        } catch (restoreError) {
+          throw new Error(
+            `订阅刷新失败，且旧快照恢复失败：${restoreError.message}`,
+            { cause: error },
+          );
+        }
+      }
+
+      await unlink(temporaryPath).catch(() => {});
+      throw error;
+    }
+
+    if (hasPreviousSnapshot) {
+      await unlink(backupPath).catch(() => {});
+    }
+
+    return {
+      subscription: { ...updatedSubscription },
+      snapshotPath,
+    };
+  });
+}

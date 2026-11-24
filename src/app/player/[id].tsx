@@ -1,0 +1,463 @@
+
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, StyleSheet, View, Text, Pressable, StatusBar } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import PlayerCore from '../../components/PlayerCore';
+import { marcoApi } from '@/services/marcoApi';
+import { savePlaybackRecord } from '@/services/playbackHistory';
+
+type Episode = {
+    id?: string;
+    title?: string;
+    name?: string;
+    url: string;
+};
+
+type PlaySource = {
+    id: string;
+    name: string;
+    episodes: Episode[];
+};
+
+function getParam(value: string | string[] | undefined): string {
+    return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+}
+
+function normalizeEpisodeTitle(value?: string): string {
+    return (value ?? '').trim().replace(/\s+/g, '').toLowerCase();
+}
+
+function findMatchingEpisode(
+    episodes: Episode[],
+    target?: Episode
+): Episode | undefined {
+    const targetTitle = normalizeEpisodeTitle(target?.title || target?.name);
+    if (!targetTitle) return undefined;
+
+    return episodes.find(item => {
+        const title = normalizeEpisodeTitle(item.title || item.name);
+        return title !== '' && title === targetTitle;
+    });
+}
+
+export default function PlayerScreen() {
+    const router = useRouter();
+    const params = useLocalSearchParams();
+
+    const siteKey = getParam(params.siteKey);
+    const flag = getParam(params.flag);
+    const movieId = getParam(params.id);
+    const movieTitle = getParam(params.movieTitle) || '未知影片';
+    const posterUrl = getParam(params.posterUrl);
+    const startPosition = Math.max(0, Number(getParam(params.startPosition) || 0) || 0);
+    const initialIndex = Math.max(
+        0,
+        Number(getParam(params.episodeIndex) || 0) || 0
+    );
+    const initialSourceIndex = Math.max(
+        0,
+        Number(getParam(params.sourceIndex) || 0) || 0
+    );
+
+    const rawPlaySources = getParam(params.playSources);
+
+    const playSources = useMemo<PlaySource[]>(() => {
+        try {
+            const parsed = rawPlaySources
+                ? JSON.parse(rawPlaySources)
+                : [];
+
+            if (!Array.isArray(parsed)) return [];
+
+            return parsed.filter(
+                (item): item is PlaySource =>
+                    item !== null &&
+                    typeof item === 'object' &&
+                    typeof item.name === 'string' &&
+                    Array.isArray(item.episodes) &&
+                    item.episodes.length > 0 &&
+                    item.episodes.every(
+                        (ep: any) =>
+                            ep &&
+                            typeof ep.url === 'string' &&
+                            ep.url.length > 0
+                    )
+            );
+        } catch {
+            return [];
+        }
+    }, [rawPlaySources]);
+    // 兼容 Expo Router 参数为 string 或 string[] 的情况
+    const rawEpisodeList = getParam(params.episodeList);
+
+    const episodeList = useMemo<Episode[]>(() => {
+        try {
+            const parsed = rawEpisodeList
+                ? JSON.parse(rawEpisodeList)
+                : [];
+
+            if (!Array.isArray(parsed)) return [];
+
+            return parsed.filter(
+                (item): item is Episode =>
+                    item !== null &&
+                    typeof item === 'object' &&
+                    typeof item.url === 'string' &&
+                    item.url.length > 0
+            );
+        } catch {
+            return [];
+        }
+    }, [rawEpisodeList]);
+
+    const [index, setIndex] = useState(initialIndex);
+    const [sourceIndex, setSourceIndex] = useState(initialSourceIndex);
+    const [switchingLine, setSwitchingLine] = useState(false);
+    const [triedSourceIndexes, setTriedSourceIndexes] = useState<number[]>([]);
+    useEffect(() => {
+        playbackErrorHandledRef.current = false;
+        setTriedSourceIndexes([]);
+        setSwitchingLine(false);
+    }, [index]);
+    const [playUrl, setPlayUrl] = useState('');
+    const [resolving, setResolving] = useState(true);
+    const [error, setError] = useState('');
+    const [retryCount, setRetryCount] = useState(0);
+    const playbackErrorHandledRef = useRef(false);
+
+    // 切换线路后允许新线路触发下一轮错误处理，保留已尝试线路记录
+    useEffect(() => {
+        playbackErrorHandledRef.current = false;
+    }, [sourceIndex]);
+    const lastProgressSavedAtRef = useRef(0);
+    const handlePlaybackError = (message: string) => {
+        console.log('[自动切换诊断] PlayerScreen 收到错误', {
+            message,
+            sourceIndex,
+            sourceCount: playSources.length,
+            episodeIndex: index,
+            currentSource: playSources[sourceIndex]?.name,
+        });
+        if (playbackErrorHandledRef.current) {
+            return;
+        }
+
+        playbackErrorHandledRef.current = true;
+        const attemptedIndexes = Array.from(
+            new Set([...triedSourceIndexes, sourceIndex])
+        );
+
+        const nextSourceIndex = Array.from(
+            { length: playSources.length },
+            (_, i) => (sourceIndex + i + 1) % playSources.length
+        ).find(
+            i =>
+                !attemptedIndexes.includes(i) &&
+                Boolean(
+                    findMatchingEpisode(playSources[i]?.episodes ?? [], ep)
+                )
+        );
+
+        setTriedSourceIndexes(attemptedIndexes);
+
+        if (nextSourceIndex === undefined) {
+            setError(message || '所有播放线路均无法播放');
+            setPlayUrl('');
+            setResolving(false);
+            setSwitchingLine(false);
+            return;
+        }
+
+        console.log(
+            '[自动切换线路]',
+            playSources[sourceIndex]?.name,
+            '→',
+            playSources[nextSourceIndex]?.name
+        );
+
+        setSwitchingLine(true);
+        setResolving(true);
+        setError('正在尝试备用线路...');
+        setSourceIndex(nextSourceIndex);
+    };
+
+    // 播放器全屏：隐藏系统状态栏，退出时恢复
+    useEffect(() => {
+        StatusBar.setHidden(true, 'fade');
+
+        return () => {
+            StatusBar.setHidden(false, 'fade');
+        };
+    }, []);
+
+    // 横屏控制
+    useEffect(() => {
+        const lockLandscape = async () => {
+            try {
+                await ScreenOrientation.unlockAsync();
+                await ScreenOrientation.lockAsync(
+                    ScreenOrientation.OrientationLock.LANDSCAPE
+                );
+            } catch (e) {
+                console.error('横向屏幕失败', e);
+            }
+        };
+
+        lockLandscape();
+
+        return () => {
+            ScreenOrientation.lockAsync(
+                ScreenOrientation.OrientationLock.PORTRAIT_UP
+            ).catch(() => {});
+        };
+    }, []);
+
+    const currentSource = playSources[sourceIndex];
+
+    const targetEpisode = episodeList[index];
+    const matchedEpisode = findMatchingEpisode(
+        currentSource?.episodes ?? [],
+        targetEpisode
+    );
+    const ep =
+        matchedEpisode ??
+        (sourceIndex === initialSourceIndex
+            ? currentSource?.episodes[index] ?? targetEpisode
+            : undefined);
+
+    const sourceName = currentSource?.name ?? flag;
+    const episodeTitle = ep?.title ?? ep?.name ?? `第${index + 1}集`;
+
+    const handleProgress = useCallback(
+        (currentTime: number, duration: number, force = false) => {
+            if (!movieId || !siteKey) return;
+
+            const now = Date.now();
+
+            if (!force && now - lastProgressSavedAtRef.current < 10000) {
+                return;
+            }
+
+            lastProgressSavedAtRef.current = now;
+
+            void savePlaybackRecord({
+                movieId,
+                siteKey,
+                sourceName,
+                movieTitle,
+                posterUrl,
+                episodeIndex: index,
+                episodeTitle,
+                currentTime,
+                duration,
+                updatedAt: now,
+            });
+        },
+        [
+            movieId,
+            siteKey,
+            sourceName,
+            movieTitle,
+            posterUrl,
+            index,
+            episodeTitle,
+        ]
+    );
+// 切换剧集或播放线路时，重新调用 CatVod 播放解析接口
+    useEffect(() => {
+        let active = true;
+
+        async function resolvePlayer() {
+            setPlayUrl('');
+            setError('');
+            setResolving(true);
+
+            if (!ep?.url) {
+                setError('没有可播放的视频地址');
+                setResolving(false);
+                return;
+            }
+
+            const source = currentSource;
+            const episode = ep;
+            const currentFlag = source?.name || flag;
+            console.log(
+                '[全部线路URL对照]',
+                playSources.map((item, i) => {
+                    const matched = findMatchingEpisode(item.episodes, ep);
+
+                    return {
+                        index: i,
+                        name: item.name,
+                        episode: matched?.title || matched?.name,
+                        url: matched?.url,
+                    };
+                })
+            );
+            try {
+                let resolvedUrl = episode.url;
+
+                if (siteKey && currentFlag) {
+                    const result = await marcoApi.getSpiderPlayer(
+                        siteKey,
+                        currentFlag,
+                        episode.url
+                    );
+
+                    console.log(
+                        '[CatVod 播放解析结果]',
+                        JSON.stringify(result, null, 2)
+                    );
+
+                    const parsedUrl = result.playUrl || result.url || '';
+
+                    if (parsedUrl) {
+                        resolvedUrl = parsedUrl;
+                    }
+                }
+
+                if (active) {
+                    console.log('[当前线路]', currentFlag);
+                    console.log('[最终播放地址]', resolvedUrl);
+
+                    setPlayUrl(resolvedUrl);
+                    setResolving(false);
+                    setSwitchingLine(false);
+                    setError('');
+                }
+            } catch (e) {
+                console.warn('[播放地址解析失败，尝试备用线路]', e);
+
+                if (active) {
+                    handlePlaybackError('播放地址解析失败，当前线路不可用');
+                }
+            }
+        }
+
+        resolvePlayer();
+
+        return () => {
+            active = false;
+        };
+    }, [ep?.url, siteKey, flag, sourceIndex, currentSource?.name, retryCount]);
+
+
+    if (!ep) {
+        return (
+            <View style={styles.center}>
+                <Text style={styles.text}>没有可播放的视频</Text>
+                <Text style={styles.hint}>
+                    请检查详情页传递的 episodeList 和 episodeIndex
+                </Text>
+            </View>
+        );
+    }
+
+    if (resolving || !playUrl) {
+        return (
+            <View style={styles.center}>
+                {error ? (
+                    <>
+                        <Text style={styles.text}>{error}</Text>
+                        <Text style={styles.hint}>所有播放线路均无法播放，请更换剧集或线路</Text>
+
+                        <Pressable
+                            style={styles.backButton}
+                            onPress={() => {
+                                playbackErrorHandledRef.current = false;
+                                setTriedSourceIndexes([]);
+                                setError('');
+                                setPlayUrl('');
+                                setResolving(true);
+                                setSwitchingLine(false);
+                                setRetryCount(value => value + 1);
+                            }}
+                        >
+                            <Text style={styles.backButtonText}>重新尝试播放</Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={styles.backButton}
+                            onPress={() => router.back()}
+                        >
+                            <Text style={styles.backButtonText}>返回详情页</Text>
+                        </Pressable>
+                    </>
+                ) : (
+                    <>
+                        <ActivityIndicator size="large" color="#fff" />
+                        <Text style={styles.hint}>
+                            {switchingLine
+                                ? '当前线路播放失败，正在尝试下一条线路...'
+                                : '正在解析播放地址...'}
+                        </Text>
+                    </>
+                )}
+            </View>
+        );
+    }
+
+    return (
+        <PlayerCore
+            key={`${index}-${playUrl}`}
+            url={playUrl}
+            title={ep.title ?? ep.name ?? `第${index + 1}集`}
+            episodeLabel={`正在播放：第${index + 1}集 / 共${episodeList.length}集`}
+            episodes={episodeList.map((episode, episodeIndex) => ({
+                title: episode.title ?? episode.name ?? `第${episodeIndex + 1}集`,
+            }))}
+            currentEpisodeIndex={index}
+            onSelectEpisode={(episodeIndex) => setIndex(episodeIndex)}
+            hasPrev={index > 0}
+            hasNext={index < episodeList.length - 1}
+            onPrev={() => setIndex(i => Math.max(0, i - 1))}
+            onNext={() =>
+                setIndex(i => Math.min(episodeList.length - 1, i + 1))
+            }
+            onBack={() => router.back()}
+            onPlaybackError={handlePlaybackError}
+            initialPosition={
+                index === initialIndex && sourceIndex === initialSourceIndex
+                    ? startPosition
+                    : 0
+            }
+            onProgress={handleProgress}
+        />
+    );
+}
+
+const styles = StyleSheet.create({
+    center: {
+        flex: 1,
+        backgroundColor: '#000',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    text: {
+        color: '#fff',
+        fontSize: 16,
+        textAlign: 'center',
+    },
+    hint: {
+        color: '#888',
+        fontSize: 13,
+        marginTop: 12,
+        textAlign: 'center',
+    },
+    backButton: {
+        marginTop: 24,
+        paddingVertical: 12,
+        paddingHorizontal: 28,
+        backgroundColor: '#e50914',
+        borderRadius: 8,
+    },
+    backButtonText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+});
+
+

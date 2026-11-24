@@ -1,0 +1,503 @@
+
+import { useEvent } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { PauseIcon, PlayIcon } from 'panelui-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+    Pressable,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+
+import ProgressBar from './ProgressBar';
+import useAutoHideControls from './useAutoHideControls';
+
+type Props = {
+    url: string;
+    title?: string;
+    episodeLabel: string;
+    hasPrev: boolean;
+    hasNext: boolean;
+    onPrev: () => void;
+    onNext: () => void;
+    onBack: () => void;
+    onPlaybackError: (message: string) => void;
+    onProgress: (currentTime: number, duration: number, force?: boolean) => void;
+    initialPosition?: number;
+};
+
+export default function PlayerCore({
+                                       url,
+                                       title,
+                                       episodeLabel,
+                                       hasPrev,
+                                       hasNext,
+                                       onPrev,
+                                       onNext,
+                                       onBack,
+                                       onPlaybackError,
+                                       onProgress,
+                                       initialPosition = 0,
+                                   }: Props) {
+    // 播放器实例
+    const player = useVideoPlayer(url, (p) => {
+        p.loop = false;
+        p.pause();
+    });
+
+    const { isPlaying } = useEvent(player, 'playingChange', {
+        isPlaying: player.playing,
+    });
+
+    // 监听播放器加载状态和错误
+    const { status, error } = useEvent(
+        player,
+        'statusChange',
+        { status: player.status }
+    );
+    /**
+     * 检测到播放器错误时通知父页面。
+     *
+     *
+     *
+     * 每个播放器实例只通知一次，避免重复切换线路。
+     *
+     *
+     *
+     * 保留原有错误检测和日志功能。
+     */
+    const hasError = status === 'error' || error != null;
+    const initialPositionAppliedRef = useRef(false);
+
+    // 视频准备完成后，先恢复上次进度，再开始播放
+    useEffect(() => {
+        if (status !== 'readyToPlay' || hasError || initialPositionAppliedRef.current) return;
+
+        const savedPosition = Math.max(0, initialPosition);
+        const videoDuration = player.duration ?? 0;
+        const targetPosition = videoDuration > 0
+            ? Math.min(savedPosition, Math.max(0, videoDuration - 1))
+            : savedPosition;
+
+        player.currentTime = targetPosition;
+        setCurrent(targetPosition);
+        if (videoDuration > 0) setDuration(videoDuration);
+
+        initialPositionAppliedRef.current = true;
+        player.play();
+    }, [player, status, hasError, initialPosition]);
+    const errorNotifiedRef = useRef(false);
+
+    useEffect(() => {
+        if (hasError && !errorNotifiedRef.current) {
+            errorNotifiedRef.current = true;
+
+            console.log('[自动切换诊断] PlayerCore 已触发错误回调');
+
+            onPlaybackError(
+                error?.message || '视频源无法访问或视频加载失败'
+            );
+        }
+    }, [hasError, error, onPlaybackError]);
+    useEffect(() => {
+        console.log('[播放器状态变化]', {
+            status,
+            error: error?.message ?? null,
+            hasError,
+        });
+    }, [status, error, hasError]);
+    useEffect(() => {
+        if (hasError) {
+            console.warn('[播放器加载失败]', {
+                url,
+                error: error?.message ?? '未知播放错误',
+            });
+        }
+    }, [hasError, error, url]);
+
+    // 进度条状态
+    const [current, setCurrent] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const seekingRef = useRef(false);
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            if (seekingRef.current || hasError) return;
+
+            const t = player.currentTime ?? 0;
+            const d = player.duration ?? 0;
+
+            setCurrent(t);
+
+            if (d > 0) {
+                setDuration(d);
+            }
+        }, 250);
+
+        return () => clearInterval(id);
+    }, [player, hasError]);
+
+    // 定期向父页面报告播放进度，卸载时补报最后进度
+    useEffect(() => {
+        const id = setInterval(() => {
+            if (hasError) return;
+            if (status !== 'readyToPlay') return;
+
+            onProgress(
+                player.currentTime ?? 0,
+                player.duration ?? 0
+            );
+        }, 1000);
+
+        return () => {
+            clearInterval(id);
+            if (status === 'readyToPlay') {
+                onProgress(
+                    player.currentTime ?? 0,
+                    player.duration ?? 0,
+                    true
+                );
+            }
+        };
+    }, [player, hasError, status, onProgress]);
+
+
+    // 控件自动隐藏
+    const {
+        showControls,
+        toggleControls,
+        resetTimer,
+    } = useAutoHideControls(30000, isPlaying);
+
+    // 进度条操作
+    const onSeekStart = () => {
+        seekingRef.current = true;
+        resetTimer();
+    };
+
+    const onSeeking = (ratio: number) => {
+        setCurrent(ratio * (duration || 0));
+    };
+
+    const onSeekEnd = (ratio: number) => {
+        const t = ratio * (duration || 0);
+
+        player.currentTime = t;
+        seekingRef.current = false;
+        setCurrent(t);
+
+        resetTimer();
+    };
+
+    // 播放暂停
+    const handlePlayPause = () => {
+        isPlaying ? player.pause() : player.play();
+        resetTimer();
+    };
+
+    // 快退或快进指定秒数
+    const handleSeekBy = (seconds: number) => {
+        const currentTime = player.currentTime ?? current;
+        const videoDuration = player.duration ?? duration;
+        const targetTime = Math.max(
+            0,
+            videoDuration > 0
+                ? Math.min(videoDuration, currentTime + seconds)
+                : currentTime + seconds
+        );
+
+        player.currentTime = targetTime;
+        setCurrent(targetTime);
+        resetTimer();
+    };
+
+    return (
+        <View style={styles.container}>
+            <VideoView
+                player={player}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                nativeControls={false}
+            />
+
+            {/* 手势层 */}
+            <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={toggleControls}
+            />
+
+            {/* 控件层 */}
+            <View
+                style={[
+                    StyleSheet.absoluteFill,
+                    {
+                        opacity: showControls ? 1 : 0,
+                        backgroundColor: hasError
+                            ? 'rgba(0,0,0,0.72)'
+                            : 'rgba(0,0,0,0.3)',
+                    },
+                ]}
+                pointerEvents={showControls ? 'box-none' : 'none'}
+            >
+                {/* 返回按钮和当前集数 */}
+                <View style={styles.headerBar}>
+                    <Pressable
+                        style={styles.backBtn}
+                        onPress={onBack}
+                    >
+                        <Text style={styles.backText}>← 返回</Text>
+                    </Pressable>
+                    <Text style={styles.episodeLabel} numberOfLines={1}>
+                        {episodeLabel}
+                    </Text>
+                </View>
+
+                {/* 中间播放区域 */}
+                <View style={styles.centerWrap}>
+                    {hasError ? (
+                        <View style={styles.errorPanel}>
+                            <Text style={styles.errorTitle}>
+                                当前线路播放失败
+                            </Text>
+
+                            <Text style={styles.errorMessage}>
+                                {error?.message ||
+                                    '视频源无法访问或视频加载失败'}
+                            </Text>
+
+                            <Text style={styles.errorHint}>
+                                请返回详情页，尝试切换其他播放线路
+                            </Text>
+
+                            <TouchableOpacity
+                                style={styles.backToDetailBtn}
+                                onPress={onBack}
+                            >
+                                <Text style={styles.backToDetailText}>
+                                    返回详情页
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.playBtn}
+                            onPress={handlePlayPause}
+                        >
+                            {isPlaying ? (
+                                <PauseIcon size={32} color="#fff" />
+                            ) : (
+                                <PlayIcon size={32} color="#fff" />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* 底部上下集和进度条 */}
+                <View style={styles.bottomBar}>
+                    <View style={styles.epRow}>
+                        <Pressable
+                            style={styles.skipBtn}
+                            onPress={() => handleSeekBy(-10)}
+                        >
+                            <Text style={styles.skipText}>↶ 10秒</Text>
+                        </Pressable>
+
+                        <View style={styles.epNavContainer}>
+                            <View style={styles.epNav}>
+                                <Pressable
+                                    onPress={() => {
+                                        onPrev();
+                                        resetTimer();
+                                    }}
+                                    disabled={!hasPrev}
+                                    style={!hasPrev ? styles.disabledBtn : null}
+                                >
+                                    <Text style={styles.navText}>◀</Text>
+                                </Pressable>
+
+                                <Pressable
+                                    onPress={() => {
+                                        onNext();
+                                        resetTimer();
+                                    }}
+                                    disabled={!hasNext}
+                                    style={!hasNext ? styles.disabledBtn : null}
+                                >
+                                    <Text style={styles.navText}>▶</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+                    <Pressable
+                        style={styles.skipBtn}
+                        onPress={() => handleSeekBy(10)}
+                    >
+                        <Text style={styles.skipText}>10秒 ↷</Text>
+                    </Pressable>
+                    </View>
+
+                    <View style={styles.epBot}>
+                        <ProgressBar
+                            current={current}
+                            duration={duration}
+                            onSeekStart={onSeekStart}
+                            onSeeking={onSeeking}
+                            onSeekEnd={onSeekEnd}
+                        />
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    headerBar: {
+        position: 'absolute',
+        top: 40,
+        left: 20,
+        right: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    backBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: 8,
+    },
+    episodeLabel: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        overflow: 'hidden',
+        flexShrink: 1,
+    },    backText: {
+        color: '#fff',
+        fontSize: 16,
+    },
+    centerWrap: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    playBtn: {
+        padding: 12,
+        borderRadius: 30,
+    },
+    errorPanel: {
+        width: '80%',
+        maxWidth: 520,
+        alignItems: 'center',
+        padding: 24,
+        borderRadius: 16,
+        backgroundColor: 'rgba(25,25,25,0.95)',
+    },
+    errorTitle: {
+        color: '#ff6464',
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginBottom: 16,
+    },
+    errorMessage: {
+        color: '#ddd',
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    errorHint: {
+        color: '#aaa',
+        fontSize: 14,
+        marginTop: 12,
+        textAlign: 'center',
+    },
+    backToDetailBtn: {
+        marginTop: 22,
+        paddingHorizontal: 26,
+        paddingVertical: 12,
+        backgroundColor: '#1890ff',
+        borderRadius: 8,
+    },
+    backToDetailText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    bottomBar: {
+        width: '90%',
+        height: 120,
+        zIndex: 99,
+        position: 'absolute',
+        left: '5%',
+        right: 0,
+        bottom: '10%',
+        padding: 5,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    epRow: {
+        width: '100%',
+        height: '50%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    skipBtn: {
+        minWidth: 76,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    skipText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    epNavContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    epNav: {
+        width: 80,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    navText: {
+        color: '#fff',
+        fontSize: 20,
+    },
+    epBot: {
+        width: '100%',
+        height: '50%',
+        alignItems: 'center',
+    },
+    disabledBtn: {
+        opacity: 0.3,
+    },
+});
+
+
+
+

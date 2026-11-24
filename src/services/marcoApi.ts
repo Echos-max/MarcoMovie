@@ -1,0 +1,589 @@
+
+export type MarcoSource = {
+  key: string;
+  name: string;
+  type: string;
+  api: string;
+  category: 'video' | 'anime' | 'other';
+  searchable: boolean;
+  quickSearch: boolean;
+  filterable: boolean;
+  runtimeSupported?: boolean;
+};
+
+export type RuntimeSource = {
+  key: string;
+  siteKey: string;
+  name: string;
+  type: string;
+  api: string;
+  playUrl?: string;
+  ext?: string;
+  enabled: boolean;
+  group?: string;
+  updatedAt?: number;
+  latency?: number;
+  ok?: boolean;
+  message?: string;
+  classCount?: number;
+  validTypes?: string;
+  typesCheckedAt?: number;
+  searchable?: number;
+  health?: string;
+  healthGroup?: string;
+};
+
+export type RuntimeSourcesResult = {
+  count: number;
+  enabledCount: number;
+  siteKeyPrefix?: string;
+  sort?: string;
+  sortLabel?: string;
+  sources: RuntimeSource[];
+};
+
+export type RuntimeSourceToggleResult = {
+  ok: boolean;
+  key: string;
+  enabled: boolean;
+  enabledCount: number;
+  siteCount: number;
+  reason?: string;
+};
+
+export type RuntimeSourceTestResult = {
+  ok: boolean;
+  key?: string;
+  latency?: number;
+  classCount?: number;
+  validTypeCount?: number;
+  searchable?: number;
+  message?: string;
+  reason?: string;
+  validTypes?: string;
+};
+export type RuntimeSourceSaveInput = {
+  key?: string;
+  name: string;
+  type: 'cms' | 'json' | 'rule';
+  api: string;
+  playUrl?: string;
+  ext?: string;
+  enabled: boolean;
+  group?: string;
+};
+
+export type RuntimeSourceSaveResult = {
+  ok: boolean;
+  saved?: number;
+  count?: number;
+  enabledCount?: number;
+  siteCount?: number;
+  sources?: RuntimeSource[];
+  reason?: string;
+};
+
+export type SpiderStatus = {
+  ready: boolean;
+  runtime: string;
+  runtimeUrl?: string;
+  message: string;
+  syncedSites?: number;
+  enabledSiteKeys?: string[];
+  health?: Record<string, unknown>;
+  detail?: Record<string, unknown>;
+};
+
+export type ConfigSummary = {
+  configured: boolean;
+  name: string | null;
+  totalSites: number;
+  videoSites: number;
+  animeSites: number;
+  runtimeSupportedSites?: number;
+};
+
+export type SpiderCategory = {
+  type_id: string;
+  type_name: string;
+  type_id_1?: string;
+};
+
+export type SpiderParentCategory = {
+  type_id: string;
+  type_name: string;
+  children: SpiderCategory[];
+};
+
+export type SpiderVideo = {
+  vod_id: string;
+  vod_name: string;
+  vod_pic?: string;
+  vod_remarks?: string;
+  vod_year?: string;
+  vod_actor?: string;
+  vod_director?: string;
+  vod_content?: string;
+  [key: string]: unknown;
+};
+
+export type SpiderResult = {
+  parentClass?: SpiderParentCategory[];
+  class?: SpiderCategory[];
+  list?: SpiderVideo[];
+  page?: number;
+  pagecount?: number;
+  limit?: number;
+  total?: number;
+  [key: string]: unknown;
+};
+
+export type SpiderEpisode = {
+  name: string;
+  url: string;
+};
+
+export type SpiderDetail = SpiderVideo & {
+  vod_play_from?: string;
+  vod_play_url?: string;
+};
+
+export type SpiderPlayerResult = {
+  parse?: number;
+  playUrl?: string;
+  url?: string;
+  header?: string | Record<string, string>;
+  [key: string]: unknown;
+};
+
+// 统一影视库影片
+export type LibraryVideo = {
+  id: string;
+  name: string;
+  pic: string;
+  remarks: string;
+
+  category1: string;
+  category2: string;
+
+  type: string;
+  area: string;
+  year: string;
+
+  sourceKey: string;
+  sourceName: string;
+  siteKey: string;
+
+  sourceCategoryId: string;
+  sourceParentCategoryId: string;
+  sourceCategoryName: string;
+
+  raw: Record<string, unknown>;
+};
+
+// 影视库筛选选项
+export type LibraryFilters = {
+  category1: string[];
+  category2: string[];
+  types: string[];
+  areas: string[];
+  years: string[];
+};
+
+// 影视库分页结果
+export type LibraryResult = {
+  page: number;
+  pageSize: number;
+  total: number;
+  pageCount: number;
+  list: LibraryVideo[];
+  filters: LibraryFilters;
+  errors: string[];
+};
+
+// 原有 API 服务地址：8787
+const API_BASE_URL = (
+    process.env.EXPO_PUBLIC_API_BASE_URL ||
+    'http://127.0.0.1:8787'
+).replace(/\/$/, '');
+
+// CatVod Runtime 地址：9978
+const RUNTIME_BASE_URL = (
+    process.env.EXPO_PUBLIC_RUNTIME_BASE_URL ||
+    'http://127.0.0.1:9978'
+).replace(/\/$/, '');
+
+// 原有 API 请求
+export type SubscriptionStatus = 'pending' | 'success' | 'error';
+
+export type Subscription = {
+  id: string;
+  name: string;
+  url: string;
+  sourceType?: 'url' | 'file';
+  enabled: boolean;
+  status: SubscriptionStatus;
+  sourceCount: number;
+  lastRefreshedAt: number | null;
+  lastError: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type SubscriptionListResult = {
+  ok: boolean;
+  total: number;
+  subscriptions: Subscription[];
+};
+
+export type SubscriptionSite = {
+  subscriptionId: string;
+  subscriptionName: string;
+  key: string;
+  siteKey: string;
+  type: number;
+  category: 'video' | 'anime' | 'other';
+  runtimeKey: string | null;
+  name: string;
+  searchable?: boolean;
+  quickSearch?: boolean;
+  filterable?: boolean;
+};
+
+export type SubscriptionSitesResult = {
+  ok: boolean;
+  total: number;
+  sites: SubscriptionSite[];
+};
+
+export type SubscriptionMutationResult = {
+  ok: boolean;
+  subscription: Subscription;
+};
+
+export type SubscriptionRefreshResult = {
+  ok: boolean;
+  subscription: Subscription;
+  sourceCount: number;
+};
+async function request<T>(
+    path: string,
+    init?: RequestInit
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+        data.error || `服务请求失败（${response.status}）`
+    );
+  }
+
+  return data as T;
+}
+
+// CatVod Runtime 请求
+async function runtimeRequest<T>(
+    path: string,
+    init?: RequestInit
+): Promise<T> {
+  const response = await fetch(`${RUNTIME_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+        data.error || `影视服务请求失败（${response.status}）`
+    );
+  }
+
+  // CatVod Runtime 的 Spider 错误会以 HTTP 200 + { error, reason, hint } 返回。
+  // 必须把错误信封转换成异常，否则页面会把失败误判为“没有分类/没有影视”。
+  if (
+    data &&
+    typeof data === 'object' &&
+    typeof data.error === 'string' &&
+    data.error.trim()
+  ) {
+    const details = [
+      data.reason,
+      data.hint,
+    ].filter((value): value is string =>
+      typeof value === 'string' && value.trim().length > 0
+    );
+    const code = data.error.trim();
+    throw new Error(
+      `[${code}] ${details.join('；') || '影视源请求失败'}`
+    );
+  }
+
+  return data as T;
+}
+
+// Spider 请求路径
+function spiderPath(
+    siteKey: string,
+    params: Record<string, string | number | boolean | undefined>
+) {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      query.set(key, String(value));
+    }
+  }
+
+  return `/api/spider/${encodeURIComponent(siteKey)}?${query.toString()}`;
+}
+
+// 影视库请求参数
+export type LibraryQuery = {
+  category1?: string;
+  category2?: string;
+  type?: string;
+  area?: string;
+  year?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+// 影视库查询参数构建
+function libraryPath(
+    params: LibraryQuery = {}
+) {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      query.set(key, String(value));
+    }
+  }
+
+  return `/api/library/list?${query.toString()}`;
+}
+
+export const marcoApi = {
+  // =====================================
+  // 原有项目 API：8787
+  // =====================================
+
+  getConfig: () =>
+      request<ConfigSummary>('/api/config'),
+
+  getSpiderStatus: () =>
+      request<SpiderStatus>('/api/spider/status'),
+
+  getSources: (category?: 'video' | 'anime' | 'other') =>
+      request<{ total: number; sources: MarcoSource[] }>(
+          `/api/sources${category ? `?category=${category}` : ''}`
+      ),
+
+  importConfig: (name: string, configUrl: string) =>
+      request<
+          { ok: boolean } &
+          ConfigSummary &
+          {
+            runtimeSync?: {
+              ok: boolean;
+              syncedSites: number;
+              message: string;
+            };
+          }
+      >('/api/config/import', {
+        method: 'POST',
+        body: JSON.stringify({ name, configUrl }),
+      }),
+
+  // =====================================
+  // =====================================
+  // =====================================
+  // 订阅管理 API：8787
+  // =====================================
+
+  // 获取订阅列表
+  getSubscriptions: () =>
+      request<SubscriptionListResult>('/api/subscriptions'),
+
+  // 按订阅配置原始顺序获取已启用订阅下的站点
+  getSubscriptionSites: () =>
+      request<SubscriptionSitesResult>('/api/subscriptions/sites'),
+
+  // 添加订阅
+  addSubscription: (name: string, url: string) =>
+      request<SubscriptionMutationResult>('/api/subscriptions', {
+        method: 'POST',
+        body: JSON.stringify({ name, url }),
+      }),
+
+  // 导入本地 JSON 订阅
+  importSubscription: (name: string, config: Record<string, unknown>) =>
+      request<SubscriptionMutationResult>('/api/subscriptions/import', {
+        method: 'POST',
+        body: JSON.stringify({ name, config }),
+      }),
+
+  // 编辑订阅
+  updateSubscription: (id: string, name: string, url: string) =>
+      request<SubscriptionMutationResult>(
+        `/api/subscriptions/${encodeURIComponent(id)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ name, url }),
+        }
+      ),
+
+  // 启用或停用订阅
+  toggleSubscription: (id: string, enabled: boolean) =>
+      request<SubscriptionMutationResult>(
+        `/api/subscriptions/${encodeURIComponent(id)}/toggle`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ enabled }),
+        }
+      ),
+
+  // 删除订阅
+  deleteSubscription: (id: string) =>
+      request<SubscriptionMutationResult>(
+        `/api/subscriptions/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+        }
+      ),
+
+  // 刷新订阅
+  refreshSubscription: (id: string) =>
+      request<SubscriptionRefreshResult>(
+        `/api/subscriptions/${encodeURIComponent(id)}/refresh`,
+        {
+          method: 'POST',
+        }
+      ),
+  // CatVod 数据源管理 API：9978
+  // =====================================
+
+  // 获取完整数据源列表（包含已停用的数据源）
+  getRuntimeSources: () =>
+      runtimeRequest<RuntimeSourcesResult>('/api/sources'),
+
+  // 启用或停用数据源
+  toggleRuntimeSource: (key: string, enabled: boolean) =>
+      runtimeRequest<RuntimeSourceToggleResult>('/api/sources/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ key, enabled }),
+      }),
+
+  // 检测单个数据源
+  testRuntimeSource: (key: string, refreshSearch = false) =>
+      runtimeRequest<RuntimeSourceTestResult>(
+          `/api/sources/test?key=${encodeURIComponent(key)}&refreshSearch=${refreshSearch ? 1 : 0}`
+      ),
+  saveRuntimeSource: (source: RuntimeSourceSaveInput) =>
+      runtimeRequest<RuntimeSourceSaveResult>('/api/sources/save', {
+        method: 'POST',
+        body: JSON.stringify(source),
+      }),
+
+  // 统一影视库 API：9978
+  // =====================================
+
+  // 获取影视库筛选选项
+  getLibraryFilters: () =>
+      runtimeRequest<LibraryFilters>('/api/library/filters'),
+
+  // 获取影视库影片分页
+  getLibraryList: (params: LibraryQuery = {}) =>
+      runtimeRequest<LibraryResult>(libraryPath(params)),
+
+  // 获取影视库状态
+  getLibraryStatus: () =>
+      runtimeRequest<Record<string, unknown>>('/api/library/status'),
+
+  // =====================================
+  // CatVod Spider API：9978
+  // =====================================
+
+  // 获取 Spider 首页分类
+  getSpiderHome: (siteKey: string, filter = true) =>
+      runtimeRequest<SpiderResult>(
+          spiderPath(siteKey, {
+            do: 'home',
+            filter: filter ? 1 : 0,
+          })
+      ),
+
+  // 获取 Spider 分类影片
+  getSpiderCategory: (
+      siteKey: string,
+      tid: string,
+      page = 1,
+      filter = true,
+      extend: Record<string, unknown> = {}
+  ) =>
+      runtimeRequest<SpiderResult>(
+          spiderPath(siteKey, {
+            do: 'category',
+            tid,
+            pg: page,
+            filter: filter ? 1 : 0,
+            extend: JSON.stringify(extend),
+          })
+      ),
+
+  // 获取 Spider 影片详情
+  getSpiderDetail: (
+      siteKey: string,
+      ids: string[]
+  ) =>
+      runtimeRequest<{ list?: SpiderDetail[] }>(
+          spiderPath(siteKey, {
+            do: 'detail',
+            ids: ids.join(','),
+          })
+      ),
+
+  // Spider 搜索
+  searchSpider: (
+      siteKey: string,
+      keyword: string,
+      page = 1,
+      quick = false
+  ) =>
+      runtimeRequest<SpiderResult>(
+          spiderPath(siteKey, {
+            do: 'search',
+            key: keyword,
+            pg: page,
+            quick: quick ? 1 : 0,
+          })
+      ),
+
+  // Spider 播放解析
+  getSpiderPlayer: (
+      siteKey: string,
+      flag: string,
+      id: string,
+      vipFlags: string[] = []
+  ) =>
+      runtimeRequest<SpiderPlayerResult>(
+          spiderPath(siteKey, {
+            do: 'player',
+            flag,
+            id,
+            vipFlags: vipFlags.join(','),
+          })
+      ),
+};

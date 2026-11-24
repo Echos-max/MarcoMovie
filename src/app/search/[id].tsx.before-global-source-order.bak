@@ -1,0 +1,943 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    Keyboard,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { Image } from "expo-image";
+import { GlassView } from "expo-glass-effect";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import {
+    marcoApi,
+    type MarcoSource,
+    type SpiderVideo,
+} from "../../services/marcoApi";
+
+const HISTORY_KEY = "marco_search_history_v1";
+const SOURCE_KEY = "marco_search_sources_v1";
+const SEARCH_TIMEOUT = 15000;
+
+type SearchItem = SpiderVideo & {
+    siteKey: string;
+    siteName: string;
+};
+
+type SourceOption = {
+    key: string;
+    name: string;
+};
+
+const COLORS = {
+    background: "#FFFFFF",
+    text: "#111111",
+    muted: "#999999",
+    border: "#E5E5E5",
+    light: "#F3F3F3",
+    blue: "#0788F9",
+    orange: "#FF9D43",
+};
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            setTimeout(() => reject(new Error("搜索超时")), milliseconds);
+        }),
+    ]);
+}
+
+export default function Search() {
+    const router = useRouter();
+
+    const [keyword, setKeyword] = useState("");
+    const [history, setHistory] = useState<string[]>([]);
+    const [sources, setSources] = useState<SourceOption[]>([]);
+    const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+    const [draftKeys, setDraftKeys] = useState<string[]>([]);
+
+    const [filterVisible, setFilterVisible] = useState(false);
+    const [loadingSources, setLoadingSources] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
+
+    const [results, setResults] = useState<SearchItem[]>([]);
+    const [sourceErrors, setSourceErrors] = useState<Record<string, string>>({});
+    const [activeSource, setActiveSource] = useState("all");
+
+    const [requestId, setRequestId] = useState(0);
+
+    useEffect(() => {
+        let active = true;
+
+        async function initialize() {
+            try {
+                const [savedHistory, savedSources, sourceResult, status] =
+                    await Promise.all([
+                        AsyncStorage.getItem(HISTORY_KEY),
+                        AsyncStorage.getItem(SOURCE_KEY),
+                        marcoApi.getSources("video"),
+                        marcoApi.getSpiderStatus(),
+                    ]);
+
+                if (!active) return;
+
+                const parsedHistory = savedHistory
+                    ? JSON.parse(savedHistory)
+                    : [];
+
+                setHistory(
+                    Array.isArray(parsedHistory)
+                        ? parsedHistory.filter(
+                            (item): item is string =>
+                                typeof item === "string"
+                        )
+                        : []
+                );
+
+                const sourceMap = new Map<string, SourceOption>();
+
+                for (const source of sourceResult.sources) {
+                    sourceMap.set(source.key, {
+                        key: source.key,
+                        name: source.name,
+                    });
+                }
+
+                const enabledKeys = status.enabledSiteKeys ?? [];
+
+                const availableSources = enabledKeys.map(key => {
+                    return sourceMap.get(key) ?? {
+                        key,
+                        name: key,
+                    };
+                });
+
+                setSources(availableSources);
+
+                const savedKeys = savedSources
+                    ? JSON.parse(savedSources)
+                    : null;
+
+                const validSavedKeys = Array.isArray(savedKeys)
+                    ? savedKeys.filter(
+                        (key: string) =>
+                            availableSources.some(source => source.key === key)
+                    )
+                    : [];
+
+                const initialKeys = savedSources
+                    ? validSavedKeys
+                    : enabledKeys;
+
+                setSelectedKeys(initialKeys);
+            } catch (error) {
+                console.error("搜索页面初始化失败：", error);
+            } finally {
+                if (active) {
+                    setLoadingSources(false);
+                }
+            }
+        }
+
+        initialize();
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const saveHistory = useCallback(async (value: string) => {
+        const nextHistory = [
+            value,
+            ...history.filter(item => item !== value),
+        ].slice(0, 20);
+
+        setHistory(nextHistory);
+
+        try {
+            await AsyncStorage.setItem(
+                HISTORY_KEY,
+                JSON.stringify(nextHistory)
+            );
+        } catch (error) {
+            console.error("搜索历史保存失败：", error);
+        }
+    }, [history]);
+
+    const clearHistory = useCallback(async () => {
+        setHistory([]);
+
+        try {
+            await AsyncStorage.removeItem(HISTORY_KEY);
+        } catch (error) {
+            console.error("搜索历史清除失败：", error);
+        }
+    }, []);
+
+    const executeSearch = useCallback(async (
+        value: string,
+        keys: string[] = selectedKeys
+    ) => {
+        const searchKeyword = value.trim();
+
+        if (!searchKeyword) return;
+
+        if (keys.length === 0) {
+            setResults([]);
+            setHasSearched(true);
+            setSourceErrors({});
+            return;
+        }
+
+        Keyboard.dismiss();
+        setKeyword(searchKeyword);
+        setHasSearched(true);
+        setLoading(true);
+        setResults([]);
+        setSourceErrors({});
+        setActiveSource("all");
+
+        const currentRequest = requestId + 1;
+        setRequestId(currentRequest);
+
+        await saveHistory(searchKeyword);
+
+        const selectedSources = sources.filter(source =>
+            keys.includes(source.key)
+        );
+
+        const settled = await Promise.all(
+            selectedSources.map(async source => {
+                try {
+                    const response = await withTimeout(
+                        marcoApi.searchSpider(
+                            source.key,
+                            searchKeyword,
+                            1,
+                            false
+                        ),
+                        SEARCH_TIMEOUT
+                    );
+
+                    return {
+                        key: source.key,
+                        name: source.name,
+                        list: response.list ?? [],
+                        error: "",
+                    };
+                } catch (error) {
+                    return {
+                        key: source.key,
+                        name: source.name,
+                        list: [] as SpiderVideo[],
+                        error: error instanceof Error
+                            ? error.message
+                            : "搜索失败",
+                    };
+                }
+            })
+        );
+
+        if (currentRequest !== requestId + 1) {
+            return;
+        }
+
+        const nextResults: SearchItem[] = [];
+        const nextErrors: Record<string, string> = {};
+
+        for (const sourceResult of settled) {
+            if (sourceResult.error) {
+                nextErrors[sourceResult.key] = sourceResult.error;
+            }
+
+            for (const video of sourceResult.list) {
+                nextResults.push({
+                    ...video,
+                    siteKey: sourceResult.key,
+                    siteName: sourceResult.name,
+                });
+            }
+        }
+
+        setResults(nextResults);
+        setSourceErrors(nextErrors);
+        setLoading(false);
+    }, [selectedKeys, sources, saveHistory, requestId]);
+
+    const sourceCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+
+        for (const item of results) {
+            counts[item.siteKey] = (counts[item.siteKey] ?? 0) + 1;
+        }
+
+        return counts;
+    }, [results]);
+
+    const visibleResults = useMemo(() => {
+        if (activeSource === "all") return results;
+
+        return results.filter(item => item.siteKey === activeSource);
+    }, [results, activeSource]);
+
+    const openFilter = () => {
+        setDraftKeys([...selectedKeys]);
+        setFilterVisible(true);
+    };
+
+    const toggleDraftSource = (key: string, enabled: boolean) => {
+        setDraftKeys(current => {
+            if (enabled) {
+                return current.includes(key)
+                    ? current
+                    : [...current, key];
+            }
+
+            return current.filter(item => item !== key);
+        });
+    };
+
+    const confirmFilter = async () => {
+        setSelectedKeys(draftKeys);
+        setFilterVisible(false);
+
+        try {
+            await AsyncStorage.setItem(
+                SOURCE_KEY,
+                JSON.stringify(draftKeys)
+            );
+        } catch (error) {
+            console.error("搜索站源配置保存失败：", error);
+        }
+
+        if (hasSearched && keyword.trim()) {
+            executeSearch(keyword, draftKeys);
+        }
+    };
+
+    const openDetail = (item: SearchItem) => {
+        router.push({
+            pathname: "/detail/[id]",
+            params: {
+                id: item.vod_id,
+                siteKey: item.siteKey,
+            },
+        });
+    };
+
+    const renderMovie = ({ item }: { item: SearchItem }) => (
+        <Pressable
+            style={styles.movieItem}
+            onPress={() => openDetail(item)}
+        >
+            <View style={styles.posterWrap}>
+                {item.vod_pic ? (
+                    <Image
+                        source={{ uri: item.vod_pic }}
+                        style={styles.poster}
+                        contentFit="cover"
+                        transition={200}
+                    />
+                ) : (
+                    <View style={[styles.poster, styles.posterPlaceholder]}>
+                        <Text style={styles.placeholderText}>暂无海报</Text>
+                    </View>
+                )}
+
+                <View style={styles.sourceBadge}>
+                    <Text style={styles.sourceBadgeText} numberOfLines={1}>
+                        {item.siteName}
+                    </Text>
+                </View>
+            </View>
+
+            <Text style={styles.movieTitle} numberOfLines={2}>
+                {item.vod_name}
+            </Text>
+        </Pressable>
+    );
+
+    const renderHistory = () => (
+        <View style={styles.historyContainer}>
+            <View style={styles.historyHeader}>
+                <Text style={styles.historyTitle}>搜索历史</Text>
+
+                <Pressable
+                    onPress={clearHistory}
+                    hitSlop={12}
+                    style={styles.clearButton}
+                >
+                    <Text style={styles.clearIcon}>▤</Text>
+                </Pressable>
+            </View>
+
+            {history.length > 0 ? (
+                <View style={styles.historyTags}>
+                    {history.map(item => (
+                        <Pressable
+                            key={item}
+                            style={styles.historyTag}
+                            onPress={() => executeSearch(item)}
+                        >
+                            <Text style={styles.historyText}>{item}</Text>
+                        </Pressable>
+                    ))}
+                </View>
+            ) : (
+                <Text style={styles.emptyHistory}>暂无搜索历史</Text>
+            )}
+        </View>
+    );
+
+    return (
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+            <View style={styles.page}>
+                <View style={styles.header}>
+                    <Pressable
+                        style={styles.roundButton}
+                        onPress={() => router.back()}
+                    >
+                        <GlassView
+                            pointerEvents="none"
+                            glassEffectStyle="clear"
+                            style={[StyleSheet.absoluteFill, { borderRadius: 30 }]}
+                        />
+                        <Text style={styles.backIcon}>‹</Text>
+                    </Pressable>
+
+                    <View style={styles.searchInputContainer}>
+                        <GlassView
+                            pointerEvents="none"
+                            glassEffectStyle="regular"
+                            style={[StyleSheet.absoluteFill, { borderRadius: 32 }]}
+                        />
+                        <TextInput
+                            style={styles.searchInput}
+                            value={keyword}
+                            onChangeText={setKeyword}
+                            placeholder="请输入影片名称"
+                            placeholderTextColor="#B8B8B8"
+                            returnKeyType="search"
+                            onSubmitEditing={() => executeSearch(keyword)}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    </View>
+
+                    <Pressable
+                        style={styles.roundButton}
+                        onPress={openFilter}
+                    >
+                        <GlassView
+                            pointerEvents="none"
+                            glassEffectStyle="clear"
+                            style={[StyleSheet.absoluteFill, { borderRadius: 30 }]}
+                        />
+                        <Text style={styles.filterIcon}>☰</Text>
+                    </Pressable>
+                </View>
+
+                {!hasSearched ? (
+                    <ScrollView
+                        style={styles.body}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {renderHistory()}
+                    </ScrollView>
+                ) : (
+                    <View style={styles.resultArea}>
+                        <View style={styles.sourceSidebar}>
+                            <Pressable
+                                style={[
+                                    styles.sourceTab,
+                                    activeSource === "all" &&
+                                    styles.sourceTabActive,
+                                ]}
+                                onPress={() => setActiveSource("all")}
+                            >
+                                <Text
+                                    style={[
+                                        styles.sourceTabText,
+                                        activeSource === "all" &&
+                                        styles.sourceTabTextActive,
+                                    ]}
+                                >
+                                    全部
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.countText,
+                                        activeSource === "all" &&
+                                        styles.countTextActive,
+                                    ]}
+                                >
+                                    {results.length}
+                                </Text>
+                            </Pressable>
+
+                            {sources
+                                .filter(source => selectedKeys.includes(source.key))
+                                .map(source => {
+                                    const active = activeSource === source.key;
+                                    const count = sourceCounts[source.key] ?? 0;
+
+                                    return (
+                                        <Pressable
+                                            key={source.key}
+                                            style={[
+                                                styles.sourceTab,
+                                                active && styles.sourceTabActive,
+                                            ]}
+                                            onPress={() => setActiveSource(source.key)}
+                                        >
+                                            <Text
+                                                numberOfLines={1}
+                                                style={[
+                                                    styles.sourceTabText,
+                                                    active && styles.sourceTabTextActive,
+                                                ]}
+                                            >
+                                                {source.name}
+                                            </Text>
+
+                                            <Text
+                                                style={[
+                                                    styles.countText,
+                                                    active && styles.countTextActive,
+                                                ]}
+                                            >
+                                                {count}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                })}
+                        </View>
+
+                        <View style={styles.resultContent}>
+                            {loading ? (
+                                <View style={styles.centerState}>
+                                    <ActivityIndicator
+                                        size="large"
+                                        color={COLORS.blue}
+                                    />
+                                    <Text style={styles.stateText}>
+                                        正在搜索影片...
+                                    </Text>
+                                </View>
+                            ) : visibleResults.length > 0 ? (
+                                <FlatList
+                                    key="search-results"
+                                    data={visibleResults}
+                                    numColumns={2}
+                                    keyExtractor={(item, index) =>
+                                        `${item.siteKey}:${item.vod_id}:${index}`
+                                    }
+                                    renderItem={renderMovie}
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={styles.movieGrid}
+                                />
+                            ) : (
+                                <View style={styles.centerState}>
+                                    <Text style={styles.emptyResult}>
+                                        {Object.keys(sourceErrors).length > 0
+                                            ? "部分站源搜索失败，暂无结果"
+                                            : "没有找到相关影片"}
+                                    </Text>
+
+                                    {Object.entries(sourceErrors).map(
+                                        ([key, message]) => (
+                                            <Text key={key} style={styles.errorText}>
+                                                {sources.find(s => s.key === key)?.name ?? key}
+                                                ：{message}
+                                            </Text>
+                                        )
+                                    )}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
+
+                <Modal
+                    visible={filterVisible}
+                    transparent
+                    animationType="slide"
+                    statusBarTranslucent
+                    onRequestClose={() => setFilterVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <Pressable
+                            style={styles.modalBackdrop}
+                            onPress={() => setFilterVisible(false)}
+                        />
+
+                        <View style={styles.filterPanel}>
+                            <View style={styles.modalHeader}>
+                                <Pressable
+                                    style={styles.modalRoundButton}
+                                    onPress={() => setFilterVisible(false)}
+                                >
+                                    <Text style={styles.modalCloseIcon}>×</Text>
+                                </Pressable>
+
+                                <Text style={styles.modalTitle}>筛选站源</Text>
+
+                                <Pressable
+                                    style={styles.modalRoundButton}
+                                    onPress={confirmFilter}
+                                >
+                                    <Text style={styles.modalConfirmIcon}>✓</Text>
+                                </Pressable>
+                            </View>
+
+                            <ScrollView
+                                style={styles.sourceList}
+                                showsVerticalScrollIndicator={false}
+                            >
+                                {loadingSources ? (
+                                    <ActivityIndicator
+                                        style={styles.sourceLoading}
+                                        color={COLORS.blue}
+                                    />
+                                ) : sources.length > 0 ? (
+                                    sources.map(source => {
+                                        const enabled = draftKeys.includes(source.key);
+
+                                        return (
+                                            <View
+                                                key={source.key}
+                                                style={styles.sourceRow}
+                                            >
+                                                <Text style={styles.sourceName}>
+                                                    {source.name}
+                                                </Text>
+
+                                                <Switch
+                                                    value={enabled}
+                                                    onValueChange={value =>
+                                                        toggleDraftSource(source.key, value)
+                                                    }
+                                                    trackColor={{
+                                                        false: "#D5D5D5",
+                                                        true: COLORS.blue,
+                                                    }}
+                                                    thumbColor="#FFFFFF"
+                                                />
+                                            </View>
+                                        );
+                                    })
+                                ) : (
+                                    <Text style={styles.emptySource}>
+                                        暂无可用站源
+                                    </Text>
+                                )}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+            </View>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+    },
+    page: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+    },
+    header: {
+        height: 88,
+        paddingHorizontal: 18,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    roundButton: {
+        width: 58,
+        height: 58,
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: "#E1E1E1",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    backIcon: {
+        fontSize: 48,
+        lineHeight: 52,
+        color: COLORS.text,
+        marginTop: -7,
+    },
+    filterIcon: {
+        fontSize: 30,
+        color: COLORS.text,
+        fontWeight: "700",
+    },
+    searchInputContainer: {
+        flex: 1,
+        height: 58,
+        borderRadius: 32,
+        overflow: "hidden",
+    },
+    searchInput: {
+        flex: 1,
+        height: 58,
+        borderRadius: 32,
+        paddingHorizontal: 24,
+        fontSize: 19,
+        color: COLORS.text,
+        backgroundColor: "transparent",
+        borderWidth: 0,
+    },
+    body: {
+        flex: 1,
+    },
+    historyContainer: {
+        paddingHorizontal: 25,
+        paddingTop: 60,
+    },
+    historyHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 36,
+    },
+    historyTitle: {
+        fontSize: 23,
+        fontWeight: "800",
+        color: COLORS.text,
+    },
+    clearButton: {
+        width: 38,
+        height: 38,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    clearIcon: {
+        fontSize: 28,
+        color: "#999999",
+    },
+    historyTags: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 16,
+    },
+    historyTag: {
+        backgroundColor: COLORS.light,
+        borderRadius: 28,
+        paddingHorizontal: 23,
+        paddingVertical: 12,
+    },
+    historyText: {
+        color: COLORS.text,
+        fontSize: 18,
+        fontWeight: "600",
+    },
+    emptyHistory: {
+        color: COLORS.muted,
+        fontSize: 15,
+    },
+    resultArea: {
+        flex: 1,
+        flexDirection: "row",
+    },
+    sourceSidebar: {
+        width: "34%",
+        paddingHorizontal: 8,
+        paddingTop: 8,
+        gap: 8,
+    },
+    sourceTab: {
+        minHeight: 48,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 7,
+    },
+    sourceTabActive: {
+        backgroundColor: COLORS.blue,
+    },
+    sourceTabText: {
+        fontSize: 15,
+        color: COLORS.text,
+        fontWeight: "600",
+        flexShrink: 1,
+    },
+    sourceTabTextActive: {
+        color: "#FFFFFF",
+    },
+    countText: {
+        color: COLORS.text,
+        fontSize: 14,
+        fontWeight: "700",
+    },
+    countTextActive: {
+        color: "#FFFFFF",
+    },
+    resultContent: {
+        flex: 1,
+        paddingHorizontal: 5,
+    },
+    movieGrid: {
+        paddingBottom: 24,
+    },
+    movieItem: {
+        width: "50%",
+        paddingHorizontal: 5,
+        paddingBottom: 14,
+    },
+    posterWrap: {
+        width: "100%",
+        aspectRatio: 2 / 3,
+        borderRadius: 9,
+        overflow: "hidden",
+        backgroundColor: "#E5E5E5",
+    },
+    poster: {
+        width: "100%",
+        height: "100%",
+    },
+    posterPlaceholder: {
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    placeholderText: {
+        color: "#999999",
+        fontSize: 13,
+    },
+    sourceBadge: {
+        position: "absolute",
+        top: 8,
+        right: 7,
+        maxWidth: "85%",
+        backgroundColor: "#FF9100",
+        borderRadius: 7,
+        paddingHorizontal: 9,
+        paddingVertical: 5,
+    },
+    sourceBadgeText: {
+        color: "#FFFFFF",
+        fontSize: 11,
+        fontWeight: "700",
+    },
+    movieTitle: {
+        color: COLORS.text,
+        textAlign: "center",
+        fontSize: 16,
+        fontWeight: "600",
+        marginTop: 8,
+    },
+    centerState: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+    },
+    stateText: {
+        color: COLORS.muted,
+        marginTop: 12,
+        fontSize: 14,
+    },
+    emptyResult: {
+        color: COLORS.muted,
+        fontSize: 15,
+        textAlign: "center",
+        marginBottom: 12,
+    },
+    errorText: {
+        color: "#D66A45",
+        fontSize: 12,
+        marginTop: 5,
+        textAlign: "center",
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "flex-end",
+    },
+    modalBackdrop: {
+        ...StyleSheet.absoluteFill,
+        backgroundColor: "rgba(0,0,0,0.18)",
+    },
+    filterPanel: {
+        height: "72%",
+        backgroundColor: "#FFFFFF",
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingHorizontal: 22,
+        paddingBottom: 20,
+    },
+    modalHeader: {
+        height: 92,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    modalRoundButton: {
+        width: 58,
+        height: 58,
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: "#E5E5E5",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalTitle: {
+        color: COLORS.text,
+        fontSize: 21,
+        fontWeight: "800",
+    },
+    modalCloseIcon: {
+        color: COLORS.text,
+        fontSize: 42,
+        lineHeight: 48,
+        marginTop: -4,
+    },
+    modalConfirmIcon: {
+        color: COLORS.text,
+        fontSize: 36,
+        fontWeight: "700",
+    },
+    sourceList: {
+        flex: 1,
+    },
+    sourceRow: {
+        minHeight: 72,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 2,
+    },
+    sourceName: {
+        color: COLORS.text,
+        fontSize: 18,
+        fontWeight: "500",
+    },
+    sourceLoading: {
+        marginTop: 30,
+    },
+    emptySource: {
+        color: COLORS.muted,
+        textAlign: "center",
+        marginTop: 30,
+    },
+});

@@ -1,0 +1,791 @@
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  marcoApi,
+  type ManagedCmsSource,
+  type ManagedSpiderSite,
+  type Subscription,
+} from '../../services/marcoApi';
+
+type ManagedResource =
+  | {
+      kind: 'subscription';
+      id: string;
+      item: Subscription;
+    }
+  | {
+      kind: 'cms';
+      id: string;
+      item: ManagedCmsSource;
+    }
+  | {
+      kind: 'spider';
+      id: string;
+      item: ManagedSpiderSite;
+    };
+
+function formatTime(timestamp: number | null) {
+  if (timestamp === null) return '尚未刷新';
+  return new Date(timestamp).toLocaleString();
+}
+
+function getStatusText(status: Subscription['status'], sourceType?: Subscription['sourceType']) {
+  if (sourceType === 'file') return status === 'success' ? '配置有效' : '配置异常';
+  if (status === 'success') return '连接正常';
+  if (status === 'error') return '连接失败';
+  return '未检查';
+}
+
+function getStatusColor(status: Subscription['status']) {
+  if (status === 'success') return '#15803D';
+  if (status === 'error') return '#DC2626';
+  return '#A16207';
+}
+
+export default function SubscriptionsScreen() {
+  const router = useRouter();
+
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [cmsSources, setCmsSources] = useState<ManagedCmsSource[]>([]);
+  const [spiderSites, setSpiderSites] = useState<ManagedSpiderSite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      setError('');
+      const result = await marcoApi.getSubscriptions();
+      setSubscriptions(result.subscriptions ?? []);
+      setCmsSources(result.cmsSources ?? []);
+      setSpiderSites(result.spiderSites ?? []);
+      setActionError(
+        [result.cmsError, result.spiderError]
+          .filter(Boolean)
+          .join('\n')
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '获取订阅列表失败');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const refreshList = () => {
+    setRefreshing(true);
+    load();
+  };
+
+  const toggleSubscription = async (
+    item: Subscription,
+    enabled: boolean
+  ) => {
+    if (busyId) return;
+
+    setBusyId(item.id);
+    setActionError('');
+
+    try {
+      const result = await marcoApi.toggleSubscription(item.id, enabled);
+      setSubscriptions(current =>
+        current.map(subscription =>
+          subscription.id === item.id
+            ? result.subscription
+            : subscription
+        )
+      );
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : '修改订阅状态失败'
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const toggleSpiderSite = async (
+    item: ManagedSpiderSite,
+    enabled: boolean
+  ) => {
+    if (busyId) return;
+
+    const actionId = `spider:${item.key}`;
+    setBusyId(actionId);
+    setActionError('');
+
+    try {
+      const result = await marcoApi.toggleSpiderSite(item.key, enabled);
+
+      setSpiderSites(current =>
+        current.map(site =>
+          site.key === item.key
+            ? {
+                ...site,
+                enabled: result.enabled,
+                registered: result.enabled,
+                runtimeRegistered: result.enabled,
+              }
+            : site
+        )
+      );
+    } catch (e) {
+      const message = e instanceof Error
+        ? e.message
+        : '\u4fee\u6539 Spider \u7ebf\u8def\u72b6\u6001\u5931\u8d25';
+
+      await load();
+      setActionError(message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const toggleCmsSource = async (item: ManagedCmsSource, enabled: boolean) => {
+    if (busyId) return;
+    const actionId = `cms:${item.key}`;
+    setBusyId(actionId);
+    setActionError('');
+    try {
+      await marcoApi.toggleCmsSource(item.key, enabled);
+      setCmsSources(current => current.map(source =>
+        source.key === item.key ? { ...source, enabled } : source
+      ));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '修改 CMS 资源状态失败');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const testCmsSource = async (item: ManagedCmsSource) => {
+    if (busyId) return;
+    const actionId = `cms:${item.key}`;
+    setBusyId(actionId);
+    setActionError('');
+    try {
+      const response = await marcoApi.testCmsSource(item.key);
+      const result = response.result;
+      setCmsSources(current => current.map(source => source.key === item.key
+        ? {
+            ...source,
+            ok: result.ok === true,
+            message: result.message || result.reason || (result.ok ? '检查正常' : '检查失败'),
+            latency: typeof result.latency === 'number' ? result.latency : source.latency,
+            classCount: typeof result.classCount === 'number' ? result.classCount : source.classCount,
+          }
+        : source
+      ));
+      if (!result.ok) setActionError(result.reason || result.message || 'CMS 资源检查失败');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '检查 CMS 资源失败');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const refreshSubscription = async (item: Subscription) => {
+    if (busyId) return;
+
+    setBusyId(item.id);
+    setActionError('');
+
+    try {
+      const result = await marcoApi.refreshSubscription(item.id);
+      setSubscriptions(current =>
+        current.map(subscription =>
+          subscription.id === item.id
+            ? result.subscription
+            : subscription
+        )
+      );
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : '刷新订阅失败'
+      );
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const deleteSubscription = (item: Subscription) => {
+    if (busyId) return;
+
+    Alert.alert(
+      '删除订阅',
+      `确定删除「${item.name}」吗？该订阅贡献的数据源归属也会被清理。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            setBusyId(item.id);
+            setActionError('');
+
+            try {
+              await marcoApi.deleteSubscription(item.id);
+              setSubscriptions(current =>
+                current.filter(subscription => subscription.id !== item.id)
+              );
+            } catch (e) {
+              setActionError(
+                e instanceof Error ? e.message : '删除订阅失败'
+              );
+            } finally {
+              setBusyId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const keyword = searchQuery.trim().toLowerCase();
+
+  const managedResources: ManagedResource[] = [
+    ...subscriptions.map(item => ({
+      kind: 'subscription' as const,
+      id: `subscription:${item.id}`,
+      item,
+    })),
+    ...cmsSources.map(item => ({
+      kind: 'cms' as const,
+      id: `cms:${item.key}`,
+      item,
+    })),
+    ...spiderSites.map(item => ({
+      kind: 'spider' as const,
+      id: `spider:${item.key}`,
+      item,
+    })),
+  ];
+
+  const filteredResources = managedResources.filter(resource => {
+    if (!keyword) return true;
+
+    if (resource.kind === 'subscription') {
+      const item = resource.item;
+      const sourceTypeText =
+        (item.sourceType ?? 'url') === 'file'
+          ? '本地 json 文件'
+          : '远程订阅';
+
+      return (
+        item.name.toLowerCase().includes(keyword) ||
+        item.url.toLowerCase().includes(keyword) ||
+        sourceTypeText.includes(keyword)
+      );
+    }
+
+    if (resource.kind === 'spider') {
+      const item = resource.item;
+      return (
+        item.name.toLowerCase().includes(keyword) ||
+        item.api.toLowerCase().includes(keyword) ||
+        item.key.toLowerCase().includes(keyword) ||
+        '独立 spider'.includes(keyword) ||
+        '厂长'.includes(keyword)
+      );
+    }
+
+    const item = resource.item;
+
+    return (
+      item.name.toLowerCase().includes(keyword) ||
+      item.api.toLowerCase().includes(keyword) ||
+      (item.group ?? '').toLowerCase().includes(keyword) ||
+      item.siteKey.toLowerCase().includes(keyword) ||
+      'cms 资源'.includes(keyword) ||
+      'cms'.includes(keyword)
+    );
+  });
+
+  const renderResource = ({ item: resource }: { item: ManagedResource }) => {
+    if (resource.kind === 'subscription') {
+      const item = resource.item;
+      const busy = busyId === item.id;
+
+      return (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.titleArea}>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.url} numberOfLines={2}>
+                {item.sourceType === 'file' ? '本地 JSON 文件' : item.url}
+              </Text>
+            </View>
+
+            <Switch
+              value={item.enabled}
+              disabled={!!busyId}
+              onValueChange={value => toggleSubscription(item, value)}
+              trackColor={{ false: '#D5D5D5', true: '#2563EB' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoText}>
+              {item.enabled ? '已启用' : '已停用'}
+            </Text>
+            <Text style={styles.infoText}>
+              {item.sourceCount} 个站点
+            </Text>
+            <Text style={[styles.status, { color: getStatusColor(item.status) }]}>
+              {getStatusText(item.status, item.sourceType)}
+            </Text>
+          </View>
+
+          {item.sourceType !== 'file' && (
+            <Text style={styles.timeText}>
+              最近检查：{formatTime(item.lastRefreshedAt)}
+            </Text>
+          )}
+
+          {item.status === 'error' && !!item.lastError && (
+            <Text style={styles.errorMessage}>
+              {item.lastError}
+            </Text>
+          )}
+
+          <View style={styles.actions}>
+            {item.sourceType !== 'file' && (
+              <>
+                <Pressable
+                  style={styles.actionButton}
+                  disabled={!!busyId}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/subscriptions/[id]',
+                      params: { id: item.id },
+                    })
+                  }
+                >
+                  <Text style={styles.actionText}>编辑</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.actionButton}
+                  disabled={!!busyId}
+                  onPress={() => refreshSubscription(item)}
+                >
+                  {busy ? (
+                    <ActivityIndicator size="small" color="#404040" />
+                  ) : (
+                    <Text style={styles.actionText}>检查</Text>
+                  )}
+                </Pressable>
+              </>
+            )}
+
+            <Pressable
+              style={[styles.actionButton, styles.deleteButton]}
+              disabled={!!busyId}
+              onPress={() => deleteSubscription(item)}
+            >
+              <Text style={styles.deleteText}>删除</Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
+
+    if (resource.kind === 'spider') {
+      const item = resource.item;
+
+      return (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.titleArea}>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.url} numberOfLines={2}>
+                {item.api}
+              </Text>
+            </View>
+
+            <Switch
+              value={item.enabled}
+              disabled={!!busyId}
+              onValueChange={value => toggleSpiderSite(item, value)}
+              trackColor={{ false: '#D5D5D5', true: '#2563EB' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoText}>独立 Spider 线路</Text>
+            <Text style={styles.infoText}>CatVod 类型 {item.type}</Text>
+            <Text style={styles.infoText}>
+              {item.enabled ? '\u5df2\u542f\u7528' : '\u5df2\u505c\u7528'}
+            </Text>
+            <Text style={[styles.status, { color: '#2563EB' }]}>
+              {(item.runtimeRegistered ?? item.registered)
+                ? 'Runtime 配置已注册'
+                : '未登记'}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoText}>
+              搜索：{item.searchable ? '支持' : '不支持'}
+            </Text>
+            <Text style={styles.infoText}>
+              快速搜索：{item.quickSearch ? '支持' : '不支持'}
+            </Text>
+            <Text style={styles.infoText}>
+              筛选：{item.filterable ? '支持' : '不支持'}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    const item = resource.item;
+    const actionId = `cms:${item.key}`;
+    const busy = busyId === actionId;
+    const statusText = item.ok
+      ? '连接正常'
+      : item.message
+        ? '检查异常'
+        : '未检查';
+    const statusColor = item.ok
+      ? '#15803D'
+      : item.message
+        ? '#DC2626'
+        : '#A16207';
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.titleArea}>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.url} numberOfLines={2}>
+              {item.api}
+            </Text>
+          </View>
+
+          <Switch
+            value={item.enabled}
+            disabled={!!busyId}
+            onValueChange={value => toggleCmsSource(item, value)}
+            trackColor={{ false: '#D5D5D5', true: '#2563EB' }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoText}>CMS 资源</Text>
+          <Text style={styles.infoText}>
+            {item.enabled ? '已启用' : '已停用'}
+          </Text>
+          <Text style={[styles.status, { color: statusColor }]}>
+            {statusText}
+          </Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          {!!item.group && (
+            <Text style={styles.infoText}>{item.group}</Text>
+          )}
+          {typeof item.latency === 'number' && item.latency >= 0 && (
+            <Text style={styles.infoText}>{item.latency} ms</Text>
+          )}
+          <Text style={styles.infoText}>
+            {item.classCount} 个分类
+          </Text>
+        </View>
+
+        {!!item.message && !item.ok && (
+          <Text style={styles.errorMessage}>
+            {item.message}
+          </Text>
+        )}
+
+        <View style={styles.actions}>
+          <Pressable
+            style={styles.actionButton}
+            disabled={!!busyId}
+            onPress={() => testCmsSource(item)}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color="#404040" />
+            ) : (
+              <Text style={styles.actionText}>检查</Text>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+  // 独立 Spider 为只读展示，不计入可启停资源统计。
+  const enabledCount =
+    subscriptions.filter(item => item.enabled).length +
+    cmsSources.filter(item => item.enabled).length;
+  const managedTotal = subscriptions.length + cmsSources.length;
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>订阅管理</Text>
+          <Text style={styles.subtitle}>
+            已启用 {enabledCount} / {managedTotal} 个可管理资源 · 独立 Spider {spiderSites.length} 条
+          </Text>
+        </View>
+
+        <Pressable
+          style={styles.addButton}
+          onPress={() => router.push('/subscriptions/add')}
+        >
+          <Text style={styles.addButtonText}>＋ 添加订阅</Text>
+        </Pressable>
+      </View>
+
+      {!!actionError && (
+        <Text style={styles.actionError}>{actionError}</Text>
+      )}
+
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+          <Text style={styles.hint}>正在加载订阅...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={load}>
+            <Text style={styles.retryText}>重新加载</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredResources}
+          keyExtractor={item => item.id}
+          renderItem={renderResource}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refreshList}
+            />
+          }
+          ListHeaderComponent={
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="搜索订阅、CMS 资源或独立 Spider"
+              placeholderTextColor="#A3A3A3"
+              style={styles.searchInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.hint}>
+                {managedTotal === 0 && spiderSites.length === 0
+                  ? '还没有订阅、CMS 资源或独立 Spider。'
+                  : '没有找到符合条件的订阅或资源。'}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={styles.listContent}
+        />  )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F7F7F8',
+    paddingHorizontal: 16,
+    paddingTop: 18,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  title: {
+    color: '#171717',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  subtitle: {
+    color: '#8A8A8A',
+    fontSize: 12,
+    marginTop: 5,
+  },
+  addButton: {
+    backgroundColor: '#171717',
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actionError: {
+    color: '#B91C1C',
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  searchInput: {
+    height: 42,
+    borderRadius: 9,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    color: '#262626',
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  listContent: {
+    paddingBottom: 30,
+    flexGrow: 1,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 13,
+    padding: 14,
+    marginBottom: 11,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleArea: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  name: {
+    color: '#262626',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  url: {
+    color: '#8A8A8A',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 5,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  infoText: {
+    color: '#737373',
+    fontSize: 11,
+  },
+  status: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  timeText: {
+    color: '#8A8A8A',
+    fontSize: 10,
+    marginTop: 9,
+  },
+  errorMessage: {
+    color: '#B91C1C',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 8,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 13,
+  },
+  actionButton: {
+    minWidth: 55,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F1F1F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  actionText: {
+    color: '#404040',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#FEF2F2',
+  },
+  deleteText: {
+    color: '#DC2626',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  hint: {
+    color: '#8A8A8A',
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#171717',
+    borderRadius: 9,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginTop: 16,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  empty: {
+    padding: 35,
+    alignItems: 'center',
+  },
+});

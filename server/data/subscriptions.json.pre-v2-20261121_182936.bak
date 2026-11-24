@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "subscriptions": [
+    {
+      "id": "cb681e93-2461-48f2-9936-62918b752f13",
+      "name": "AIWEX 影视订阅",
+      "url": "https://9280.kstore.vip/aiwex.json",
+      "enabled": true,
+      "status": "success",
+      "sourceCount": 100,
+      "lastRefreshedAt": 1795254806179,
+      "lastError": "",
+      "createdAt": 1795254767975,
+      "updatedAt": 1795254806180
+    }
+  ]
+}

@@ -1,0 +1,988 @@
+2026-11-22 14:17:20.567 [INFO] 源池已载入：2 条（D:\Codex\Project\00\MarcoMovie2\server\catvod-runtime\config\sources.json）
+2026-11-22 14:17:20.594 [INFO] 源池已应用：注册内置站点 2 个
+2026-11-22 14:17:20.604 [INFO] 源池站点已注册：2 个（源池共 2 条，启用 2 条）
+2026-11-22 14:17:20.614 [INFO] 复用已转换的 JVM jar: feimao-spider.dex-jvm.jar
+2026-11-22 14:17:20.615 [INFO] 站点已注册: 荐片 (?┃荐片┃影视) -> feimao-spider.dex-jvm.jar
+2026-11-22 14:17:20.616 [INFO] 复用已转换的 JVM jar: feimao-spider.dex-jvm.jar
+2026-11-22 14:17:20.617 [INFO] 站点已注册: 厂长 (?┃厂长┃影视) -> feimao-spider.dex-jvm.jar
+2026-11-22 14:17:20.618 [INFO] 复用已转换的 JVM jar: feimao-spider.dex-jvm.jar
+2026-11-22 14:17:20.618 [INFO] 站点已注册: csp_Dm84 (?┃动漫┃巴士) -> feimao-spider.dex-jvm.jar
+2026-11-22 14:17:20.626 [INFO] 用户配置已应用：mode=config，站点 3 个（本地加载 3 个）
+2026-11-22 14:17:20.627 [INFO] 已恢复用户配置：mode=config，站点 3 个，多仓 0 个
+I/JarLoader: invokeInit skipped: java.lang.NoClassDefFoundError: android/content/ComponentName
+I/JarLoader: invokeProxy success: feimao-spider.dex-jvm.jar
+I/JarLoader: getSpider success site=荐片, api=csp_Jianpian
+2026-11-22 14:17:21.991 [INFO] 预热站点: 荐片 -> com.github.catvod.spider.Jianpian
+2026-11-22 14:17:23.831 [INFO] 站点 荐片 homeContent 返回 2786 字符
+I/JarLoader: invokeInit skipped: java.lang.NoClassDefFoundError: android/content/ComponentName
+I/JarLoader: invokeProxy success: feimao-spider.dex-jvm.jar
+I/JarLoader: getSpider success site=厂长, api=csp_Czsapp
+I/SiteHolder: 厂长专用 HTTP 客户端已切换为 HTTP/1.1
+2026-11-22 14:17:26.359 [INFO] 预热站点: 厂长 -> com.github.catvod.spider.Czsapp
+2026-11-22 14:17:31.381 [INFO] 站点 厂长 homeContent 返回 12694 字符
+I/JarLoader: invokeInit skipped: java.lang.NoClassDefFoundError: android/content/ComponentName
+I/JarLoader: invokeProxy success: feimao-spider.dex-jvm.jar
+I/JarLoader: getSpider success site=csp_Dm84, api=csp_Dm84
+2026-11-22 14:17:31.390 [INFO] 预热站点: csp_Dm84 -> com.github.catvod.spider.Dm84
+2026-11-22 14:18:13.555 [INFO] 站点 csp_Dm84 homeContent 返回 52 字符
+2026-11-22 14:18:13.558 [INFO] 预热站点: cms_lzi -> com.github.catvod.crawler.CmsSpider
+[CMS请求失败] site=cms_lzi action=list cost=15013ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=list cost=15014ms error=InterruptedIOException
+2026-11-22 14:18:43.593 [INFO] 站点 cms_lzi homeContent 返回 184 字符
+2026-11-22 14:18:43.594 [INFO] 预热站点: cms_wujin -> com.github.catvod.crawler.CmsSpider
+[CMS请求] site=cms_wujin action=list http=200 cost=1258ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=247ms result=json
+2026-11-22 14:18:45.112 [INFO] 站点 cms_wujin homeContent 返回 5307 字符
+[Library] 已恢复缓存，影片数量：5778
+[Library] 开始全量采集
+2026-11-22 14:18:45.338 [INFO] ========================================
+2026-11-22 14:18:45.338 [INFO] TVBox jar 采集源宿主服务已启动
+2026-11-22 14:18:45.339 [INFO]   工程根目录 : D:\Codex\Project\00\MarcoMovie2\server\catvod-runtime
+2026-11-22 14:18:45.339 [INFO]   内置站点   : D:\Codex\Project\00\MarcoMovie2\server\catvod-runtime\config\spiders.json
+2026-11-22 14:18:45.339 [INFO]   用户配置   : D:\Codex\Project\00\MarcoMovie2\server\catvod-runtime\config\user-config.json
+2026-11-22 14:18:45.340 [INFO]   已注册站点 : 5
+2026-11-22 14:18:45.340 [INFO]   监听地址   : http://0.0.0.0:9978
+2026-11-22 14:18:45.341 [INFO]   配置页面   : http://127.0.0.1:9978/
+2026-11-22 14:18:45.341 [INFO]   本机自检   : curl http://127.0.0.1:9978/health
+2026-11-22 14:18:45.343 [INFO]   局域网地址 : http://192.168.1.6:9978/ （配置页）
+2026-11-22 14:18:45.344 [INFO]                http://192.168.1.6:9978/api/config （客户端接口地址）
+2026-11-22 14:18:45.348 [INFO]   鸿蒙端配置 : host=192.168.1.6, port=9978, serverUrl=http://192.168.1.6:9978/api/spider/{siteKey}
+2026-11-22 14:18:45.349 [INFO] ========================================
+2026-11-22 14:18:55.482 [INFO] GET /health (23ms)
+[CMS请求失败] site=cms_lzi action=list cost=15012ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=list cost=15003ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=detail cost=15014ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=videolist cost=15001ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=list cost=15010ms error=InterruptedIOException
+[CMS 分类采集] site=cms_lzi tid=1 page=1 videos=0
+[CMS请求失败] site=cms_lzi action=detail cost=15001ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=videolist cost=15009ms error=InterruptedIOException
+2026-11-22 14:22:59.095 [INFO] GET /api/library/list (125ms)
+2026-11-22 14:22:59.095 [INFO] GET /api/library/list (125ms)
+2026-11-22 14:22:59.098 [INFO] GET /api/library/filters (61ms)
+[CMS请求失败] site=cms_lzi action=list cost=15012ms error=InterruptedIOException
+[CMS 分类采集] site=cms_lzi tid=2 page=1 videos=0
+2026-11-22 14:22:59.238 [INFO] GET /api/library/list (33ms)
+2026-11-22 14:22:59.395 [INFO] GET /api/spider/荐片 (242ms)
+2026-11-22 14:23:07.475 [INFO] GET /api/sources (0ms)
+2026-11-22 14:23:09.635 [INFO] GET /api/spider/花卷 (1ms)
+2026-11-22 14:23:09.648 [INFO] GET /api/spider/AiNewGuanYing (1ms)
+2026-11-22 14:23:09.648 [INFO] GET /api/spider/玩偶 (1ms)
+2026-11-22 14:23:09.718 [INFO] GET /api/spider/AiNewMuOu (1ms)
+2026-11-22 14:23:09.718 [INFO] GET /api/spider/AiNewDuoDuo (1ms)
+2026-11-22 14:23:09.718 [INFO] GET /api/spider/AiQwMkv (1ms)
+2026-11-22 14:23:09.718 [INFO] GET /api/spider/AiNewHuBan (1ms)
+2026-11-22 14:23:09.718 [INFO] GET /api/spider/AiNewPianKu (1ms)
+2026-11-22 14:23:09.749 [INFO] GET /api/spider/AiNewLaBi (1ms)
+2026-11-22 14:23:09.749 [INFO] GET /api/spider/AiNewKuaiYing (1ms)
+2026-11-22 14:23:09.749 [INFO] GET /api/spider/AiNewJuTou (1ms)
+2026-11-22 14:23:09.751 [INFO] GET /api/spider/AiNewShanDian (1ms)
+2026-11-22 14:23:09.766 [INFO] GET /api/spider/AiNewLibvio (1ms)
+2026-11-22 14:23:09.772 [INFO] GET /api/spider/原盘 (1ms)
+2026-11-22 14:23:09.776 [INFO] GET /api/spider/WexHanXiaoQuan (0ms)
+2026-11-22 14:23:09.777 [INFO] GET /api/spider/AiNewYiDong4K (0ms)
+2026-11-22 14:23:09.777 [INFO] GET /api/spider/蜗牛 (0ms)
+2026-11-22 14:23:09.799 [INFO] GET /api/spider/WexAiGuaZi (1ms)
+2026-11-22 14:23:09.804 [INFO] GET /api/spider/WexAiDuBoKu (0ms)
+2026-11-22 14:23:09.806 [INFO] GET /api/spider/WexAiYueYue (1ms)
+2026-11-22 14:23:09.807 [INFO] GET /api/spider/WexFengYe4K (1ms)
+2026-11-22 14:23:09.807 [INFO] GET /api/spider/WexAiWenCai (1ms)
+2026-11-22 14:23:09.823 [INFO] GET /api/spider/賤賤 (1ms)
+2026-11-22 14:23:09.828 [INFO] GET /api/spider/下饭 (0ms)
+2026-11-22 14:23:09.829 [INFO] GET /api/spider/AppV7 | 粉猪追剧 (0ms)
+2026-11-22 14:23:09.829 [INFO] GET /api/spider/AppV7 | 大师兄 (0ms)
+2026-11-22 14:23:09.829 [INFO] GET /api/spider/AppV7 | 咸鱼 (0ms)
+2026-11-22 14:23:09.841 [INFO] GET /api/spider/AppV7 | 追剧达人 (0ms)
+2026-11-22 14:23:09.850 [INFO] GET /api/spider/AppV7 | 小柚子 (1ms)
+2026-11-22 14:23:09.851 [INFO] GET /api/spider/AppV7 | 小柠檬 (1ms)
+2026-11-22 14:23:09.851 [INFO] GET /api/spider/AppV7 | 蒙太奇 (1ms)
+2026-11-22 14:23:09.851 [INFO] GET /api/spider/AppV7 | 零零七影视 (1ms)
+2026-11-22 14:23:09.862 [INFO] GET /api/spider/AppV7 | 小柿子 (1ms)
+2026-11-22 14:23:09.867 [INFO] GET /api/spider/AppV7 | 小黄人 (0ms)
+2026-11-22 14:23:09.872 [INFO] GET /api/spider/WexAiYiYs (1ms)
+2026-11-22 14:23:09.872 [INFO] GET /api/spider/WexAiReBo (0ms)
+2026-11-22 14:23:09.872 [INFO] GET /api/spider/WexAiIkanBot (1ms)
+2026-11-22 14:23:09.873 [INFO] GET /api/spider/WexAiBoBo (1ms)
+2026-11-22 14:23:09.879 [INFO] GET /api/spider/ManJuAiHongGuo (1ms)
+2026-11-22 14:23:09.917 [INFO] GET /api/spider/ManJuAiHuoLong (1ms)
+2026-11-22 14:23:09.919 [INFO] GET /api/spider/ManJuAiHeMa (0ms)
+2026-11-22 14:23:09.923 [INFO] GET /api/spider/ManJuAiXiFan (1ms)
+2026-11-22 14:23:09.923 [INFO] GET /api/spider/ManJuAiQiMao (1ms)
+2026-11-22 14:23:09.924 [INFO] GET /api/spider/DuanJuAiHaoKan (0ms)
+2026-11-22 14:23:09.924 [INFO] GET /api/spider/DuanJuAiQiMiao (0ms)
+2026-11-22 14:23:09.933 [INFO] GET /api/spider/DuanJuAiXingYa (0ms)
+2026-11-22 14:23:09.948 [INFO] GET /api/spider/Emby (1ms)
+2026-11-22 14:23:09.949 [INFO] GET /api/spider/Emby001 (0ms)
+2026-11-22 14:23:09.949 [INFO] GET /api/spider/DuanJuAiWeiGuan (0ms)
+2026-11-22 14:23:09.965 [INFO] GET /api/spider/DiyVod (0ms)
+2026-11-22 14:23:09.965 [INFO] GET /api/spider/biliys (0ms)
+2026-11-22 14:23:09.965 [INFO] GET /api/spider/bilibili (0ms)
+2026-11-22 14:23:11.888 [INFO] GET /api/spider/cms_wujin (1899ms)
+[CMS请求失败] site=cms_lzi action=detail cost=15006ms error=InterruptedIOException
+[CMS请求失败] site=cms_lzi action=videolist cost=15006ms error=InterruptedIOException
+2026-11-22 14:23:38.003 [INFO] GET /api/spider/花卷 (1ms)
+2026-11-22 14:23:38.003 [INFO] GET /api/spider/玩偶 (1ms)
+2026-11-22 14:23:38.010 [INFO] GET /api/spider/AiNewPianKu (0ms)
+2026-11-22 14:23:38.010 [INFO] GET /api/spider/AiNewGuanYing (0ms)
+2026-11-22 14:23:38.011 [INFO] GET /api/spider/AiQwMkv (1ms)
+2026-11-22 14:23:38.026 [INFO] GET /api/spider/AiNewMuOu (0ms)
+2026-11-22 14:23:38.026 [INFO] GET /api/spider/AiNewHuBan (0ms)
+2026-11-22 14:23:38.028 [INFO] GET /api/spider/AiNewDuoDuo (1ms)
+2026-11-22 14:23:38.028 [INFO] GET /api/spider/AiNewLaBi (1ms)
+2026-11-22 14:23:38.028 [INFO] GET /api/spider/AiNewKuaiYing (1ms)
+2026-11-22 14:23:38.066 [INFO] GET /api/spider/AiNewShanDian (0ms)
+2026-11-22 14:23:38.067 [INFO] GET /api/spider/AiNewJuTou (1ms)
+2026-11-22 14:23:38.067 [INFO] GET /api/spider/AiNewLibvio (1ms)
+2026-11-22 14:23:38.067 [INFO] GET /api/spider/原盘 (0ms)
+2026-11-22 14:23:38.067 [INFO] GET /api/spider/蜗牛 (0ms)
+2026-11-22 14:23:38.078 [INFO] GET /api/spider/AiNewYiDong4K (0ms)
+2026-11-22 14:23:38.081 [INFO] GET /api/spider/WexAiYueYue (0ms)
+2026-11-22 14:23:38.081 [INFO] GET /api/spider/WexHanXiaoQuan (0ms)
+2026-11-22 14:23:38.082 [INFO] GET /api/spider/WexAiDuBoKu (1ms)
+2026-11-22 14:23:38.082 [INFO] GET /api/spider/WexAiGuaZi (1ms)
+2026-11-22 14:23:38.111 [INFO] GET /api/spider/WexFengYe4K (0ms)
+2026-11-22 14:23:38.111 [INFO] GET /api/spider/AppV7 | 大师兄 (0ms)
+2026-11-22 14:23:38.111 [INFO] GET /api/spider/賤賤 (0ms)
+2026-11-22 14:23:38.111 [INFO] GET /api/spider/下饭 (0ms)
+2026-11-22 14:23:38.111 [INFO] GET /api/spider/WexAiWenCai (1ms)
+2026-11-22 14:23:38.134 [INFO] GET /api/spider/AppV7 | 咸鱼 (1ms)
+2026-11-22 14:23:38.134 [INFO] GET /api/spider/AppV7 | 追剧达人 (1ms)
+2026-11-22 14:23:38.134 [INFO] GET /api/spider/AppV7 | 粉猪追剧 (1ms)
+2026-11-22 14:23:38.135 [INFO] GET /api/spider/AppV7 | 小柚子 (1ms)
+2026-11-22 14:23:38.135 [INFO] GET /api/spider/AppV7 | 小柠檬 (1ms)
+2026-11-22 14:23:38.168 [INFO] GET /api/spider/AppV7 | 蒙太奇 (1ms)
+2026-11-22 14:23:38.169 [INFO] GET /api/spider/WexAiYiYs (0ms)
+2026-11-22 14:23:38.169 [INFO] GET /api/spider/AppV7 | 小黄人 (0ms)
+2026-11-22 14:23:38.177 [INFO] GET /api/spider/AppV7 | 零零七影视 (0ms)
+2026-11-22 14:23:38.178 [INFO] GET /api/spider/AppV7 | 小柿子 (0ms)
+2026-11-22 14:23:38.183 [INFO] GET /api/spider/WexAiReBo (1ms)
+2026-11-22 14:23:38.183 [INFO] GET /api/spider/WexAiBoBo (1ms)
+2026-11-22 14:23:38.183 [INFO] GET /api/spider/WexAiIkanBot (1ms)
+2026-11-22 14:23:38.192 [INFO] GET /api/spider/ManJuAiHuoLong (0ms)
+2026-11-22 14:23:38.192 [INFO] GET /api/spider/ManJuAiHongGuo (0ms)
+2026-11-22 14:23:38.201 [INFO] GET /api/spider/ManJuAiHeMa (1ms)
+2026-11-22 14:23:38.202 [INFO] GET /api/spider/ManJuAiQiMao (1ms)
+2026-11-22 14:23:38.202 [INFO] GET /api/spider/ManJuAiXiFan (0ms)
+2026-11-22 14:23:38.206 [INFO] GET /api/spider/DuanJuAiHaoKan (0ms)
+2026-11-22 14:23:38.206 [INFO] GET /api/spider/DuanJuAiQiMiao (1ms)
+2026-11-22 14:23:38.218 [INFO] GET /api/spider/DuanJuAiXingYa (1ms)
+2026-11-22 14:23:38.218 [INFO] GET /api/spider/Emby (0ms)
+2026-11-22 14:23:38.235 [INFO] GET /api/spider/DiyVod (1ms)
+2026-11-22 14:23:38.235 [INFO] GET /api/spider/Emby001 (1ms)
+2026-11-22 14:23:38.235 [INFO] GET /api/spider/DuanJuAiWeiGuan (1ms)
+2026-11-22 14:23:38.238 [INFO] GET /api/spider/biliys (1ms)
+2026-11-22 14:23:38.243 [INFO] GET /api/spider/bilibili (0ms)
+2026-11-22 14:23:39.017 [INFO] GET /api/spider/cms_wujin (754ms)
+[CMS请求失败] site=cms_lzi action=list cost=15001ms error=InterruptedIOException
+[CMS 分类采集] site=cms_lzi tid=3 page=1 videos=0
+2026-11-22 14:23:47.686 [INFO] GET /api/spider/花卷 (1ms)
+2026-11-22 14:23:47.687 [INFO] GET /api/spider/AiNewGuanYing (1ms)
+2026-11-22 14:23:47.686 [INFO] GET /api/spider/玩偶 (0ms)
+2026-11-22 14:23:47.687 [INFO] GET /api/spider/AiNewPianKu (1ms)
+2026-11-22 14:23:47.687 [INFO] GET /api/spider/AiQwMkv (1ms)
+2026-11-22 14:23:47.717 [INFO] GET /api/spider/AiNewDuoDuo (1ms)
+2026-11-22 14:23:47.717 [INFO] GET /api/spider/AiNewMuOu (1ms)
+2026-11-22 14:23:47.718 [INFO] GET /api/spider/AiNewLaBi (1ms)
+2026-11-22 14:23:47.718 [INFO] GET /api/spider/AiNewHuBan (1ms)
+2026-11-22 14:23:47.718 [INFO] GET /api/spider/AiNewKuaiYing (1ms)
+2026-11-22 14:23:47.741 [INFO] GET /api/spider/AiNewShanDian (1ms)
+2026-11-22 14:23:47.741 [INFO] GET /api/spider/AiNewJuTou (1ms)
+2026-11-22 14:23:47.742 [INFO] GET /api/spider/AiNewLibvio (1ms)
+2026-11-22 14:23:47.742 [INFO] GET /api/spider/原盘 (1ms)
+2026-11-22 14:23:47.754 [INFO] GET /api/spider/蜗牛 (1ms)
+2026-11-22 14:23:47.758 [INFO] GET /api/spider/AiNewYiDong4K (1ms)
+2026-11-22 14:23:47.758 [INFO] GET /api/spider/WexAiDuBoKu (1ms)
+2026-11-22 14:23:47.758 [INFO] GET /api/spider/WexAiGuaZi (1ms)
+2026-11-22 14:23:47.758 [INFO] GET /api/spider/WexHanXiaoQuan (1ms)
+2026-11-22 14:23:47.780 [INFO] GET /api/spider/WexAiWenCai (0ms)
+2026-11-22 14:23:47.780 [INFO] GET /api/spider/WexFengYe4K (1ms)
+2026-11-22 14:23:47.780 [INFO] GET /api/spider/賤賤 (1ms)
+2026-11-22 14:23:47.780 [INFO] GET /api/spider/WexAiYueYue (1ms)
+2026-11-22 14:23:47.781 [INFO] GET /api/spider/下饭 (1ms)
+2026-11-22 14:23:47.804 [INFO] GET /api/spider/AppV7 | 大师兄 (0ms)
+2026-11-22 14:23:47.805 [INFO] GET /api/spider/AppV7 | 咸鱼 (0ms)
+2026-11-22 14:23:47.806 [INFO] GET /api/spider/AppV7 | 小柚子 (0ms)
+2026-11-22 14:23:47.806 [INFO] GET /api/spider/AppV7 | 追剧达人 (0ms)
+2026-11-22 14:23:47.812 [INFO] GET /api/spider/AppV7 | 粉猪追剧 (0ms)
+2026-11-22 14:23:47.819 [INFO] GET /api/spider/AppV7 | 小柠檬 (0ms)
+2026-11-22 14:23:47.819 [INFO] GET /api/spider/AppV7 | 零零七影视 (0ms)
+2026-11-22 14:23:47.820 [INFO] GET /api/spider/AppV7 | 蒙太奇 (0ms)
+2026-11-22 14:23:47.820 [INFO] GET /api/spider/AppV7 | 小柿子 (0ms)
+2026-11-22 14:23:47.823 [INFO] GET /api/spider/AppV7 | 小黄人 (0ms)
+2026-11-22 14:23:47.837 [INFO] GET /api/spider/WexAiYiYs (1ms)
+2026-11-22 14:23:47.837 [INFO] GET /api/spider/WexAiReBo (1ms)
+2026-11-22 14:23:47.854 [INFO] GET /api/spider/WexAiIkanBot (1ms)
+2026-11-22 14:23:47.856 [INFO] GET /api/spider/WexAiBoBo (1ms)
+2026-11-22 14:23:47.856 [INFO] GET /api/spider/ManJuAiHongGuo (0ms)
+2026-11-22 14:23:47.861 [INFO] GET /api/spider/ManJuAiHuoLong (0ms)
+2026-11-22 14:23:47.861 [INFO] GET /api/spider/ManJuAiQiMao (0ms)
+2026-11-22 14:23:47.863 [INFO] GET /api/spider/ManJuAiXiFan (0ms)
+2026-11-22 14:23:47.865 [INFO] GET /api/spider/ManJuAiHeMa (0ms)
+2026-11-22 14:23:47.866 [INFO] GET /api/spider/DuanJuAiHaoKan (1ms)
+2026-11-22 14:23:47.882 [INFO] GET /api/spider/DuanJuAiQiMiao (1ms)
+2026-11-22 14:23:47.882 [INFO] GET /api/spider/DuanJuAiXingYa (1ms)
+2026-11-22 14:23:47.883 [INFO] GET /api/spider/DuanJuAiWeiGuan (1ms)
+2026-11-22 14:23:47.883 [INFO] GET /api/spider/Emby (1ms)
+2026-11-22 14:23:47.890 [INFO] GET /api/spider/Emby001 (0ms)
+2026-11-22 14:23:47.906 [INFO] GET /api/spider/DiyVod (1ms)
+2026-11-22 14:23:47.907 [INFO] GET /api/spider/bilibili (0ms)
+2026-11-22 14:23:47.909 [INFO] GET /api/spider/biliys (1ms)
+2026-11-22 14:23:48.706 [INFO] GET /api/spider/cms_wujin (798ms)
+[CMS请求失败] site=cms_lzi action=detail cost=15012ms error=InterruptedIOException
+2026-11-22 14:24:09.201 [INFO] GET /api/spider/cms_lzi (89257ms)
+2026-11-22 14:24:09.217 [INFO] GET /api/spider/cms_lzi (89273ms)
+[CMS请求失败] site=cms_lzi action=videolist cost=15010ms error=InterruptedIOException
+2026-11-22 14:24:17.863 [INFO] GET /api/spider/花卷 (0ms)
+2026-11-22 14:24:17.863 [INFO] GET /api/spider/AiNewGuanYing (0ms)
+2026-11-22 14:24:17.879 [INFO] GET /api/spider/AiNewPianKu (0ms)
+2026-11-22 14:24:17.879 [INFO] GET /api/spider/玩偶 (0ms)
+2026-11-22 14:24:17.879 [INFO] GET /api/spider/AiQwMkv (0ms)
+2026-11-22 14:24:17.943 [INFO] GET /api/spider/AiNewHuBan (0ms)
+2026-11-22 14:24:17.943 [INFO] GET /api/spider/AiNewMuOu (0ms)
+2026-11-22 14:24:17.943 [INFO] GET /api/spider/AiNewLaBi (0ms)
+2026-11-22 14:24:17.959 [INFO] GET /api/spider/AiNewDuoDuo (0ms)
+2026-11-22 14:24:17.959 [INFO] GET /api/spider/AiNewKuaiYing (0ms)
+2026-11-22 14:24:17.959 [INFO] GET /api/spider/AiNewShanDian (0ms)
+2026-11-22 14:24:17.975 [INFO] GET /api/spider/AiNewJuTou (0ms)
+2026-11-22 14:24:17.975 [INFO] GET /api/spider/AiNewLibvio (0ms)
+2026-11-22 14:24:17.975 [INFO] GET /api/spider/原盘 (0ms)
+2026-11-22 14:24:17.975 [INFO] GET /api/spider/蜗牛 (0ms)
+2026-11-22 14:24:17.990 [INFO] GET /api/spider/AiNewYiDong4K (0ms)
+2026-11-22 14:24:17.990 [INFO] GET /api/spider/WexHanXiaoQuan (0ms)
+2026-11-22 14:24:17.990 [INFO] GET /api/spider/WexAiGuaZi (0ms)
+2026-11-22 14:24:17.990 [INFO] GET /api/spider/WexAiDuBoKu (0ms)
+2026-11-22 14:24:18.006 [INFO] GET /api/spider/WexAiYueYue (0ms)
+2026-11-22 14:24:18.006 [INFO] GET /api/spider/WexAiWenCai (0ms)
+2026-11-22 14:24:18.006 [INFO] GET /api/spider/WexFengYe4K (0ms)
+2026-11-22 14:24:18.006 [INFO] GET /api/spider/賤賤 (0ms)
+2026-11-22 14:24:18.006 [INFO] GET /api/spider/下饭 (0ms)
+2026-11-22 14:24:18.022 [INFO] GET /api/spider/AppV7 | 大师兄 (0ms)
+2026-11-22 14:24:18.022 [INFO] GET /api/spider/AppV7 | 粉猪追剧 (0ms)
+2026-11-22 14:24:18.038 [INFO] GET /api/spider/AppV7 | 咸鱼 (0ms)
+2026-11-22 14:24:18.038 [INFO] GET /api/spider/AppV7 | 追剧达人 (0ms)
+2026-11-22 14:24:18.038 [INFO] GET /api/spider/AppV7 | 小柚子 (0ms)
+2026-11-22 14:24:18.088 [INFO] GET /api/spider/AppV7 | 蒙太奇 (0ms)
+2026-11-22 14:24:18.088 [INFO] GET /api/spider/AppV7 | 小柠檬 (0ms)
+2026-11-22 14:24:18.088 [INFO] GET /api/spider/AppV7 | 零零七影视 (0ms)
+2026-11-22 14:24:18.096 [INFO] GET /api/spider/AppV7 | 小柿子 (8ms)
+2026-11-22 14:24:18.101 [INFO] GET /api/spider/AppV7 | 小黄人 (0ms)
+2026-11-22 14:24:18.111 [INFO] GET /api/spider/WexAiReBo (0ms)
+2026-11-22 14:24:18.111 [INFO] GET /api/spider/WexAiYiYs (0ms)
+2026-11-22 14:24:18.111 [INFO] GET /api/spider/WexAiBoBo (0ms)
+2026-11-22 14:24:18.111 [INFO] GET /api/spider/WexAiIkanBot (0ms)
+2026-11-22 14:24:18.111 [INFO] GET /api/spider/ManJuAiHongGuo (0ms)
+2026-11-22 14:24:18.143 [INFO] GET /api/spider/ManJuAiHuoLong (0ms)
+2026-11-22 14:24:18.174 [INFO] GET /api/spider/ManJuAiQiMao (15ms)
+2026-11-22 14:24:18.174 [INFO] GET /api/spider/ManJuAiXiFan (15ms)
+2026-11-22 14:24:18.174 [INFO] GET /api/spider/DuanJuAiHaoKan (15ms)
+2026-11-22 14:24:18.174 [INFO] GET /api/spider/ManJuAiHeMa (15ms)
+2026-11-22 14:24:18.190 [INFO] GET /api/spider/DuanJuAiWeiGuan (0ms)
+2026-11-22 14:24:18.190 [INFO] GET /api/spider/Emby (0ms)
+2026-11-22 14:24:18.190 [INFO] GET /api/spider/DuanJuAiXingYa (0ms)
+2026-11-22 14:24:18.190 [INFO] GET /api/spider/DuanJuAiQiMiao (0ms)
+2026-11-22 14:24:18.190 [INFO] GET /api/spider/Emby001 (0ms)
+2026-11-22 14:24:18.206 [INFO] GET /api/spider/DiyVod (0ms)
+2026-11-22 14:24:18.222 [INFO] GET /api/spider/bilibili (0ms)
+2026-11-22 14:24:18.222 [INFO] GET /api/spider/biliys (0ms)
+2026-11-22 14:24:21.022 [INFO] GET /api/spider/cms_wujin (2800ms)
+[CMS请求失败] site=cms_lzi action=list cost=15014ms error=InterruptedIOException
+[CMS 分类采集] site=cms_lzi tid=4 page=1 videos=0
+[CMS请求] site=cms_wujin action=list http=200 cost=996ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=245ms result=json
+[CMS请求] site=cms_wujin action=detail http=200 cost=379ms result=json
+[CMS请求] site=cms_wujin action=videolist http=200 cost=382ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=456ms result=json
+[CMS 分类采集] site=cms_wujin tid=1 page=1 videos=0
+[CMS请求] site=cms_wujin action=detail http=200 cost=396ms result=json
+[CMS 分类采集] site=cms_wujin tid=6 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=451ms result=json
+[CMS 分类采集] site=cms_wujin tid=6 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=778ms result=json
+[CMS 分类采集] site=cms_wujin tid=6 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=744ms result=json
+[CMS 分类采集] site=cms_wujin tid=6 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=751ms result=json
+[CMS 分类采集] site=cms_wujin tid=6 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=543ms result=json
+[CMS 分类采集] site=cms_wujin tid=7 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1532ms result=json
+[CMS 分类采集] site=cms_wujin tid=7 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1043ms result=json
+[CMS 分类采集] site=cms_wujin tid=7 page=3 videos=20
+2026-11-22 14:24:38.978 [INFO] GET /api/spider/cms_lzi (88988ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=1309ms result=json
+[CMS 分类采集] site=cms_wujin tid=7 page=4 videos=20
+2026-11-22 14:24:39.771 [INFO] GET /api/sources (1ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=1597ms result=json
+[CMS 分类采集] site=cms_wujin tid=7 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1276ms result=json
+[CMS 分类采集] site=cms_wujin tid=8 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1084ms result=json
+[CMS 分类采集] site=cms_wujin tid=8 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1059ms result=json
+[CMS 分类采集] site=cms_wujin tid=8 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1067ms result=json
+[CMS 分类采集] site=cms_wujin tid=8 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1718ms result=json
+[CMS 分类采集] site=cms_wujin tid=8 page=5 videos=20
+2026-11-22 14:24:47.343 [INFO] GET /api/spider/花卷 (0ms)
+2026-11-22 14:24:47.353 [INFO] GET /api/spider/玩偶 (0ms)
+2026-11-22 14:24:47.353 [INFO] GET /api/spider/AiNewGuanYing (0ms)
+2026-11-22 14:24:47.353 [INFO] GET /api/spider/AiQwMkv (0ms)
+2026-11-22 14:24:47.356 [INFO] GET /api/spider/AiNewPianKu (0ms)
+2026-11-22 14:24:47.356 [INFO] GET /api/spider/AiNewHuBan (0ms)
+2026-11-22 14:24:47.407 [INFO] GET /api/spider/AiNewKuaiYing (0ms)
+2026-11-22 14:24:47.407 [INFO] GET /api/spider/AiNewMuOu (0ms)
+2026-11-22 14:24:47.407 [INFO] GET /api/spider/AiNewLaBi (0ms)
+2026-11-22 14:24:47.407 [INFO] GET /api/spider/AiNewShanDian (0ms)
+2026-11-22 14:24:47.407 [INFO] GET /api/spider/AiNewJuTou (0ms)
+2026-11-22 14:24:47.407 [INFO] GET /api/spider/AiNewDuoDuo (0ms)
+2026-11-22 14:24:47.423 [INFO] GET /api/spider/原盘 (0ms)
+2026-11-22 14:24:47.423 [INFO] GET /api/spider/AiNewLibvio (0ms)
+2026-11-22 14:24:47.423 [INFO] GET /api/spider/WexAiGuaZi (0ms)
+2026-11-22 14:24:47.423 [INFO] GET /api/spider/WexHanXiaoQuan (0ms)
+2026-11-22 14:24:47.423 [INFO] GET /api/spider/AiNewYiDong4K (0ms)
+2026-11-22 14:24:47.423 [INFO] GET /api/spider/蜗牛 (0ms)
+2026-11-22 14:24:47.439 [INFO] GET /api/spider/WexAiDuBoKu (0ms)
+2026-11-22 14:24:47.455 [INFO] GET /api/spider/WexAiYueYue (0ms)
+2026-11-22 14:24:47.455 [INFO] GET /api/spider/賤賤 (0ms)
+2026-11-22 14:24:47.455 [INFO] GET /api/spider/WexFengYe4K (0ms)
+2026-11-22 14:24:47.457 [INFO] GET /api/spider/下饭 (2ms)
+2026-11-22 14:24:47.455 [INFO] GET /api/spider/WexAiWenCai (0ms)
+2026-11-22 14:24:47.471 [INFO] GET /api/spider/AppV7 | 粉猪追剧 (0ms)
+2026-11-22 14:24:47.471 [INFO] GET /api/spider/AppV7 | 大师兄 (0ms)
+2026-11-22 14:24:47.471 [INFO] GET /api/spider/AppV7 | 小柚子 (0ms)
+2026-11-22 14:24:47.471 [INFO] GET /api/spider/AppV7 | 咸鱼 (0ms)
+2026-11-22 14:24:47.471 [INFO] GET /api/spider/AppV7 | 小柠檬 (0ms)
+2026-11-22 14:24:47.471 [INFO] GET /api/spider/AppV7 | 追剧达人 (0ms)
+2026-11-22 14:24:47.487 [INFO] GET /api/spider/AppV7 | 蒙太奇 (0ms)
+2026-11-22 14:24:47.487 [INFO] GET /api/spider/AppV7 | 零零七影视 (0ms)
+2026-11-22 14:24:47.487 [INFO] GET /api/spider/AppV7 | 小黄人 (0ms)
+2026-11-22 14:24:47.502 [INFO] GET /api/spider/WexAiYiYs (0ms)
+2026-11-22 14:24:47.503 [INFO] GET /api/spider/AppV7 | 小柿子 (1ms)
+2026-11-22 14:24:47.503 [INFO] GET /api/spider/WexAiReBo (0ms)
+2026-11-22 14:24:47.503 [INFO] GET /api/spider/WexAiBoBo (0ms)
+2026-11-22 14:24:47.503 [INFO] GET /api/spider/WexAiIkanBot (0ms)
+2026-11-22 14:24:47.503 [INFO] GET /api/spider/ManJuAiHongGuo (0ms)
+2026-11-22 14:24:47.503 [INFO] GET /api/spider/ManJuAiHuoLong (0ms)
+2026-11-22 14:24:47.519 [INFO] GET /api/spider/ManJuAiXiFan (0ms)
+2026-11-22 14:24:47.519 [INFO] GET /api/spider/ManJuAiHeMa (1ms)
+2026-11-22 14:24:47.519 [INFO] GET /api/spider/ManJuAiQiMao (1ms)
+2026-11-22 14:24:47.519 [INFO] GET /api/spider/DuanJuAiHaoKan (0ms)
+2026-11-22 14:24:47.583 [INFO] GET /api/spider/Emby (0ms)
+2026-11-22 14:24:47.583 [INFO] GET /api/spider/DuanJuAiQiMiao (0ms)
+2026-11-22 14:24:47.583 [INFO] GET /api/spider/DuanJuAiXingYa (0ms)
+2026-11-22 14:24:47.583 [INFO] GET /api/spider/Emby001 (0ms)
+2026-11-22 14:24:47.583 [INFO] GET /api/spider/DuanJuAiWeiGuan (0ms)
+2026-11-22 14:24:47.583 [INFO] GET /api/spider/DiyVod (0ms)
+2026-11-22 14:24:47.599 [INFO] GET /api/spider/biliys (0ms)
+2026-11-22 14:24:47.599 [INFO] GET /api/spider/bilibili (0ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=979ms result=json
+[CMS 分类采集] site=cms_wujin tid=9 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1007ms result=json
+[CMS 分类采集] site=cms_wujin tid=9 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=851ms result=json
+[CMS 分类采集] site=cms_wujin tid=9 page=3 videos=20
+2026-11-22 14:24:50.637 [INFO] GET /api/spider/cms_wujin (3038ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=1091ms result=json
+[CMS 分类采集] site=cms_wujin tid=9 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1146ms result=json
+[CMS 分类采集] site=cms_wujin tid=9 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1613ms result=json
+[CMS 分类采集] site=cms_wujin tid=10 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1014ms result=json
+[CMS 分类采集] site=cms_wujin tid=10 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=983ms result=json
+[CMS 分类采集] site=cms_wujin tid=10 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1132ms result=json
+[CMS 分类采集] site=cms_wujin tid=10 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=972ms result=json
+[CMS 分类采集] site=cms_wujin tid=10 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1615ms result=json
+[CMS 分类采集] site=cms_wujin tid=11 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1023ms result=json
+[CMS 分类采集] site=cms_wujin tid=11 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=952ms result=json
+[CMS 分类采集] site=cms_wujin tid=11 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=906ms result=json
+[CMS 分类采集] site=cms_wujin tid=11 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=908ms result=json
+[CMS 分类采集] site=cms_wujin tid=11 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=862ms result=json
+[CMS 分类采集] site=cms_wujin tid=12 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1020ms result=json
+[CMS 分类采集] site=cms_wujin tid=12 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=947ms result=json
+[CMS 分类采集] site=cms_wujin tid=12 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1543ms result=json
+[CMS 分类采集] site=cms_wujin tid=12 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1858ms result=json
+[CMS 分类采集] site=cms_wujin tid=12 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=809ms result=json
+[CMS 分类采集] site=cms_wujin tid=21 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=987ms result=json
+[CMS 分类采集] site=cms_wujin tid=21 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1060ms result=json
+[CMS 分类采集] site=cms_wujin tid=21 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=829ms result=json
+[CMS 分类采集] site=cms_wujin tid=21 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=811ms result=json
+[CMS 分类采集] site=cms_wujin tid=21 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1008ms result=json
+[CMS 分类采集] site=cms_wujin tid=32 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1054ms result=json
+[CMS 分类采集] site=cms_wujin tid=32 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1015ms result=json
+[CMS 分类采集] site=cms_wujin tid=32 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1029ms result=json
+[CMS 分类采集] site=cms_wujin tid=32 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=814ms result=json
+2026-11-22 14:25:18.950 [INFO] GET /api/spider/花卷 (0ms)
+[CMS 分类采集] site=cms_wujin tid=32 page=5 videos=20
+2026-11-22 14:25:18.974 [INFO] GET /api/spider/AiNewGuanYing (1ms)
+2026-11-22 14:25:18.974 [INFO] GET /api/spider/玩偶 (1ms)
+2026-11-22 14:25:18.974 [INFO] GET /api/spider/AiQwMkv (1ms)
+2026-11-22 14:25:18.974 [INFO] GET /api/spider/AiNewPianKu (1ms)
+2026-11-22 14:25:18.978 [INFO] GET /api/spider/AiNewHuBan (1ms)
+2026-11-22 14:25:19.002 [INFO] GET /api/spider/AiNewMuOu (1ms)
+2026-11-22 14:25:19.002 [INFO] GET /api/spider/AiNewKuaiYing (1ms)
+2026-11-22 14:25:19.002 [INFO] GET /api/spider/AiNewDuoDuo (1ms)
+2026-11-22 14:25:19.003 [INFO] GET /api/spider/AiNewLaBi (1ms)
+2026-11-22 14:25:19.011 [INFO] GET /api/spider/AiNewShanDian (1ms)
+2026-11-22 14:25:19.216 [INFO] GET /api/spider/AiNewJuTou (1ms)
+2026-11-22 14:25:19.216 [INFO] GET /api/spider/蜗牛 (1ms)
+2026-11-22 14:25:19.216 [INFO] GET /api/spider/AiNewLibvio (1ms)
+2026-11-22 14:25:19.216 [INFO] GET /api/spider/AiNewYiDong4K (1ms)
+2026-11-22 14:25:19.216 [INFO] GET /api/spider/原盘 (1ms)
+2026-11-22 14:25:19.252 [INFO] GET /api/spider/WexAiYueYue (1ms)
+2026-11-22 14:25:19.252 [INFO] GET /api/spider/WexHanXiaoQuan (1ms)
+2026-11-22 14:25:19.252 [INFO] GET /api/spider/WexAiDuBoKu (1ms)
+2026-11-22 14:25:19.264 [INFO] GET /api/spider/WexAiWenCai (1ms)
+2026-11-22 14:25:19.264 [INFO] GET /api/spider/WexAiGuaZi (1ms)
+2026-11-22 14:25:19.275 [INFO] GET /api/spider/賤賤 (1ms)
+2026-11-22 14:25:19.275 [INFO] GET /api/spider/下饭 (1ms)
+2026-11-22 14:25:19.275 [INFO] GET /api/spider/WexFengYe4K (0ms)
+2026-11-22 14:25:19.278 [INFO] GET /api/spider/AppV7 | 大师兄 (0ms)
+2026-11-22 14:25:19.282 [INFO] GET /api/spider/AppV7 | 粉猪追剧 (1ms)
+2026-11-22 14:25:19.470 [INFO] GET /api/spider/AppV7 | 咸鱼 (1ms)
+2026-11-22 14:25:19.470 [INFO] GET /api/spider/AppV7 | 追剧达人 (1ms)
+2026-11-22 14:25:19.470 [INFO] GET /api/spider/AppV7 | 蒙太奇 (1ms)
+2026-11-22 14:25:19.470 [INFO] GET /api/spider/AppV7 | 小柚子 (1ms)
+2026-11-22 14:25:19.470 [INFO] GET /api/spider/AppV7 | 小柠檬 (1ms)
+2026-11-22 14:25:19.490 [INFO] GET /api/spider/AppV7 | 零零七影视 (1ms)
+2026-11-22 14:25:19.504 [INFO] GET /api/spider/WexAiReBo (1ms)
+2026-11-22 14:25:19.504 [INFO] GET /api/spider/AppV7 | 小柿子 (1ms)
+2026-11-22 14:25:19.504 [INFO] GET /api/spider/WexAiYiYs (1ms)
+2026-11-22 14:25:19.504 [INFO] GET /api/spider/AppV7 | 小黄人 (1ms)
+2026-11-22 14:25:19.511 [INFO] GET /api/spider/WexAiBoBo (1ms)
+2026-11-22 14:25:19.530 [INFO] GET /api/spider/ManJuAiHongGuo (1ms)
+2026-11-22 14:25:19.530 [INFO] GET /api/spider/ManJuAiQiMao (1ms)
+2026-11-22 14:25:19.530 [INFO] GET /api/spider/WexAiIkanBot (1ms)
+2026-11-22 14:25:19.531 [INFO] GET /api/spider/ManJuAiHuoLong (1ms)
+2026-11-22 14:25:19.536 [INFO] GET /api/spider/ManJuAiXiFan (0ms)
+2026-11-22 14:25:19.542 [INFO] GET /api/spider/DuanJuAiHaoKan (1ms)
+2026-11-22 14:25:19.550 [INFO] GET /api/spider/ManJuAiHeMa (0ms)
+2026-11-22 14:25:19.550 [INFO] GET /api/spider/DuanJuAiQiMiao (0ms)
+2026-11-22 14:25:19.550 [INFO] GET /api/spider/DuanJuAiXingYa (0ms)
+2026-11-22 14:25:19.556 [INFO] GET /api/spider/Emby (0ms)
+2026-11-22 14:25:19.562 [INFO] GET /api/spider/DuanJuAiWeiGuan (1ms)
+2026-11-22 14:25:19.581 [INFO] GET /api/spider/bilibili (1ms)
+2026-11-22 14:25:19.581 [INFO] GET /api/spider/biliys (1ms)
+2026-11-22 14:25:19.581 [INFO] GET /api/spider/DiyVod (1ms)
+2026-11-22 14:25:19.581 [INFO] GET /api/spider/Emby001 (1ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=843ms result=json
+[CMS 分类采集] site=cms_wujin tid=33 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=791ms result=json
+[CMS 分类采集] site=cms_wujin tid=33 page=2 videos=20
+2026-11-22 14:25:21.146 [INFO] GET /api/spider/cms_wujin (1528ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=817ms result=json
+[CMS 分类采集] site=cms_wujin tid=33 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=826ms result=json
+[CMS 分类采集] site=cms_wujin tid=33 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=787ms result=json
+[CMS 分类采集] site=cms_wujin tid=33 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=697ms result=json
+[CMS 分类采集] site=cms_wujin tid=34 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=730ms result=json
+[CMS 分类采集] site=cms_wujin tid=34 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=734ms result=json
+[CMS 分类采集] site=cms_wujin tid=34 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=778ms result=json
+[CMS 分类采集] site=cms_wujin tid=34 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=698ms result=json
+[CMS 分类采集] site=cms_wujin tid=34 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=742ms result=json
+[CMS 分类采集] site=cms_wujin tid=35 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=711ms result=json
+[CMS 分类采集] site=cms_wujin tid=35 page=2 videos=15
+[CMS请求] site=cms_wujin action=detail http=200 cost=899ms result=json
+[CMS 分类采集] site=cms_wujin tid=36 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=835ms result=json
+[CMS 分类采集] site=cms_wujin tid=36 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1547ms result=json
+[CMS 分类采集] site=cms_wujin tid=36 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1070ms result=json
+[CMS 分类采集] site=cms_wujin tid=36 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=759ms result=json
+[CMS 分类采集] site=cms_wujin tid=36 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=681ms result=json
+[CMS 分类采集] site=cms_wujin tid=46 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=936ms result=json
+[CMS 分类采集] site=cms_wujin tid=46 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1535ms result=json
+[CMS 分类采集] site=cms_wujin tid=46 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=787ms result=json
+[CMS 分类采集] site=cms_wujin tid=46 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=812ms result=json
+[CMS 分类采集] site=cms_wujin tid=46 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=692ms result=json
+[CMS 分类采集] site=cms_wujin tid=60 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=650ms result=json
+[CMS 分类采集] site=cms_wujin tid=60 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=832ms result=json
+[CMS 分类采集] site=cms_wujin tid=60 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=741ms result=json
+[CMS 分类采集] site=cms_wujin tid=60 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=706ms result=json
+[CMS 分类采集] site=cms_wujin tid=60 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=386ms result=json
+[CMS请求] site=cms_wujin action=videolist http=200 cost=250ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=470ms result=json
+[CMS 分类采集] site=cms_wujin tid=2 page=1 videos=0
+[CMS请求] site=cms_wujin action=detail http=200 cost=780ms result=json
+[CMS 分类采集] site=cms_wujin tid=13 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1026ms result=json
+[CMS 分类采集] site=cms_wujin tid=13 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1325ms result=json
+[CMS 分类采集] site=cms_wujin tid=13 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=945ms result=json
+[CMS 分类采集] site=cms_wujin tid=13 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1183ms result=json
+[CMS 分类采集] site=cms_wujin tid=13 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1278ms result=json
+[CMS 分类采集] site=cms_wujin tid=14 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=788ms result=json
+[CMS 分类采集] site=cms_wujin tid=14 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1029ms result=json
+[CMS 分类采集] site=cms_wujin tid=14 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1052ms result=json
+[CMS 分类采集] site=cms_wujin tid=14 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1054ms result=json
+[CMS 分类采集] site=cms_wujin tid=14 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1585ms result=json
+[CMS 分类采集] site=cms_wujin tid=15 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1000ms result=json
+[CMS 分类采集] site=cms_wujin tid=15 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1251ms result=json
+[CMS 分类采集] site=cms_wujin tid=15 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=774ms result=json
+[CMS 分类采集] site=cms_wujin tid=15 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=800ms result=json
+[CMS 分类采集] site=cms_wujin tid=15 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=590ms result=json
+[CMS 分类采集] site=cms_wujin tid=16 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=675ms result=json
+[CMS 分类采集] site=cms_wujin tid=16 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=851ms result=json
+[CMS 分类采集] site=cms_wujin tid=16 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=723ms result=json
+[CMS 分类采集] site=cms_wujin tid=16 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1395ms result=json
+[CMS 分类采集] site=cms_wujin tid=16 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=679ms result=json
+[CMS 分类采集] site=cms_wujin tid=22 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=948ms result=json
+[CMS 分类采集] site=cms_wujin tid=22 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1271ms result=json
+[CMS 分类采集] site=cms_wujin tid=22 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1220ms result=json
+[CMS 分类采集] site=cms_wujin tid=22 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1839ms result=json
+[CMS 分类采集] site=cms_wujin tid=22 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=991ms result=json
+[CMS 分类采集] site=cms_wujin tid=23 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1147ms result=json
+[CMS 分类采集] site=cms_wujin tid=23 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1001ms result=json
+[CMS 分类采集] site=cms_wujin tid=23 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1057ms result=json
+[CMS 分类采集] site=cms_wujin tid=23 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=913ms result=json
+[CMS 分类采集] site=cms_wujin tid=23 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=733ms result=json
+[CMS 分类采集] site=cms_wujin tid=24 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1198ms result=json
+[CMS 分类采集] site=cms_wujin tid=24 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=818ms result=json
+[CMS 分类采集] site=cms_wujin tid=24 page=3 videos=20
+2026-11-22 14:26:17.097 [ERROR] 请求处理失败 GET /api/spider/cms_lzi -> Connection reset by peer
+2026-11-22 14:26:17.109 [INFO] GET /api/spider/cms_lzi (89510ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=822ms result=json
+[CMS 分类采集] site=cms_wujin tid=24 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=795ms result=json
+[CMS 分类采集] site=cms_wujin tid=24 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1065ms result=json
+[CMS 分类采集] site=cms_wujin tid=37 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=989ms result=json
+[CMS 分类采集] site=cms_wujin tid=37 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=913ms result=json
+[CMS 分类采集] site=cms_wujin tid=37 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=796ms result=json
+[CMS 分类采集] site=cms_wujin tid=37 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=810ms result=json
+[CMS 分类采集] site=cms_wujin tid=37 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=786ms result=json
+[CMS 分类采集] site=cms_wujin tid=61 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1047ms result=json
+[CMS 分类采集] site=cms_wujin tid=61 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=858ms result=json
+[CMS 分类采集] site=cms_wujin tid=61 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=706ms result=json
+[CMS 分类采集] site=cms_wujin tid=61 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1286ms result=json
+[CMS 分类采集] site=cms_wujin tid=61 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=392ms result=json
+[CMS请求] site=cms_wujin action=videolist http=200 cost=253ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=1471ms result=json
+[CMS 分类采集] site=cms_wujin tid=3 page=1 videos=0
+[CMS请求] site=cms_wujin action=detail http=200 cost=2162ms result=json
+[CMS 分类采集] site=cms_wujin tid=25 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1836ms result=json
+[CMS 分类采集] site=cms_wujin tid=25 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1506ms result=json
+[CMS 分类采集] site=cms_wujin tid=25 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=862ms result=json
+[CMS 分类采集] site=cms_wujin tid=25 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=969ms result=json
+[CMS 分类采集] site=cms_wujin tid=25 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=729ms result=json
+[CMS 分类采集] site=cms_wujin tid=26 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=934ms result=json
+[CMS 分类采集] site=cms_wujin tid=26 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=705ms result=json
+[CMS 分类采集] site=cms_wujin tid=26 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=602ms result=json
+[CMS 分类采集] site=cms_wujin tid=26 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=596ms result=json
+[CMS 分类采集] site=cms_wujin tid=26 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=2395ms result=json
+[CMS 分类采集] site=cms_wujin tid=27 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1243ms result=json
+[CMS 分类采集] site=cms_wujin tid=27 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1488ms result=json
+[CMS 分类采集] site=cms_wujin tid=27 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=709ms result=json
+[CMS 分类采集] site=cms_wujin tid=27 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=764ms result=json
+[CMS 分类采集] site=cms_wujin tid=27 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=522ms result=json
+[CMS 分类采集] site=cms_wujin tid=28 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=592ms result=json
+[CMS 分类采集] site=cms_wujin tid=28 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=557ms result=json
+[CMS 分类采集] site=cms_wujin tid=28 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=550ms result=json
+[CMS 分类采集] site=cms_wujin tid=28 page=4 videos=14
+[CMS请求] site=cms_wujin action=detail http=200 cost=509ms result=json
+[CMS 分类采集] site=cms_wujin tid=44 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=720ms result=json
+[CMS 分类采集] site=cms_wujin tid=44 page=2 videos=2
+[CMS请求] site=cms_wujin action=detail http=200 cost=1138ms result=json
+[CMS 分类采集] site=cms_wujin tid=64 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1334ms result=json
+[CMS 分类采集] site=cms_wujin tid=64 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=778ms result=json
+[CMS 分类采集] site=cms_wujin tid=64 page=3 videos=5
+[CMS请求] site=cms_wujin action=detail http=200 cost=517ms result=json
+[CMS请求] site=cms_wujin action=videolist http=200 cost=247ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=514ms result=json
+[CMS 分类采集] site=cms_wujin tid=4 page=1 videos=0
+2026-11-22 14:26:56.408 [INFO] GET /api/sources (1ms)
+2026-11-22 14:26:56.458 [INFO] GET /api/sites (1ms)
+2026-11-22 14:26:56.463 [INFO] GET /api/sources (0ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=2653ms result=json
+[CMS 分类采集] site=cms_wujin tid=29 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1312ms result=json
+[CMS 分类采集] site=cms_wujin tid=29 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1063ms result=json
+[CMS 分类采集] site=cms_wujin tid=29 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1083ms result=json
+[CMS 分类采集] site=cms_wujin tid=29 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=856ms result=json
+[CMS 分类采集] site=cms_wujin tid=29 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=904ms result=json
+[CMS 分类采集] site=cms_wujin tid=30 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=676ms result=json
+[CMS 分类采集] site=cms_wujin tid=30 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=600ms result=json
+[CMS 分类采集] site=cms_wujin tid=30 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=671ms result=json
+[CMS 分类采集] site=cms_wujin tid=30 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1076ms result=json
+[CMS 分类采集] site=cms_wujin tid=30 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=571ms result=json
+[CMS 分类采集] site=cms_wujin tid=31 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=625ms result=json
+[CMS 分类采集] site=cms_wujin tid=31 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=588ms result=json
+[CMS 分类采集] site=cms_wujin tid=31 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=603ms result=json
+[CMS 分类采集] site=cms_wujin tid=31 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=605ms result=json
+[CMS 分类采集] site=cms_wujin tid=31 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1509ms result=json
+[CMS 分类采集] site=cms_wujin tid=42 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=781ms result=json
+[CMS 分类采集] site=cms_wujin tid=42 page=2 videos=18
+[CMS请求] site=cms_wujin action=detail http=200 cost=786ms result=json
+[CMS 分类采集] site=cms_wujin tid=43 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1337ms result=json
+[CMS 分类采集] site=cms_wujin tid=43 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=677ms result=json
+[CMS 分类采集] site=cms_wujin tid=43 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=505ms result=json
+[CMS 分类采集] site=cms_wujin tid=43 page=4 videos=14
+[CMS请求] site=cms_wujin action=detail http=200 cost=402ms result=json
+[CMS 分类采集] site=cms_wujin tid=39 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=791ms result=json
+[CMS 分类采集] site=cms_wujin tid=39 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=495ms result=json
+[CMS 分类采集] site=cms_wujin tid=39 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=478ms result=json
+[CMS 分类采集] site=cms_wujin tid=39 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1399ms result=json
+[CMS 分类采集] site=cms_wujin tid=39 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=2772ms result=json
+[CMS 分类采集] site=cms_wujin tid=40 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=2262ms result=json
+[CMS 分类采集] site=cms_wujin tid=40 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1646ms result=json
+[CMS 分类采集] site=cms_wujin tid=40 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1572ms result=json
+[CMS 分类采集] site=cms_wujin tid=40 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1721ms result=json
+[CMS 分类采集] site=cms_wujin tid=40 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=682ms result=json
+[CMS 分类采集] site=cms_wujin tid=41 page=1 videos=7
+[CMS请求] site=cms_wujin action=detail http=200 cost=478ms result=json
+[CMS请求] site=cms_wujin action=videolist http=200 cost=535ms result=json
+[CMS请求] site=cms_wujin action=list http=200 cost=528ms result=json
+[CMS 分类采集] site=cms_wujin tid=41 page=2 videos=0
+[CMS请求] site=cms_wujin action=detail http=200 cost=829ms result=json
+[CMS 分类采集] site=cms_wujin tid=53 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=744ms result=json
+[CMS 分类采集] site=cms_wujin tid=53 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=580ms result=json
+[CMS 分类采集] site=cms_wujin tid=53 page=3 videos=3
+[CMS请求] site=cms_wujin action=detail http=200 cost=696ms result=json
+[CMS 分类采集] site=cms_wujin tid=54 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1661ms result=json
+[CMS 分类采集] site=cms_wujin tid=54 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1222ms result=json
+[CMS 分类采集] site=cms_wujin tid=54 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=893ms result=json
+[CMS 分类采集] site=cms_wujin tid=54 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1527ms result=json
+[CMS 分类采集] site=cms_wujin tid=54 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=820ms result=json
+[CMS 分类采集] site=cms_wujin tid=55 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=800ms result=json
+[CMS 分类采集] site=cms_wujin tid=55 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=809ms result=json
+[CMS 分类采集] site=cms_wujin tid=55 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=784ms result=json
+[CMS 分类采集] site=cms_wujin tid=55 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=783ms result=json
+[CMS 分类采集] site=cms_wujin tid=55 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1016ms result=json
+[CMS 分类采集] site=cms_wujin tid=56 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=864ms result=json
+[CMS 分类采集] site=cms_wujin tid=56 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=859ms result=json
+[CMS 分类采集] site=cms_wujin tid=56 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=857ms result=json
+[CMS 分类采集] site=cms_wujin tid=56 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=850ms result=json
+[CMS 分类采集] site=cms_wujin tid=56 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=911ms result=json
+[CMS 分类采集] site=cms_wujin tid=57 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=822ms result=json
+[CMS 分类采集] site=cms_wujin tid=57 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=821ms result=json
+[CMS 分类采集] site=cms_wujin tid=57 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=821ms result=json
+[CMS 分类采集] site=cms_wujin tid=57 page=4 videos=20
+2026-11-22 14:27:51.126 [INFO] GET /api/spider/荐片 (1140ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=881ms result=json
+[CMS 分类采集] site=cms_wujin tid=57 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=748ms result=json
+[CMS 分类采集] site=cms_wujin tid=58 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=823ms result=json
+[CMS 分类采集] site=cms_wujin tid=58 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=820ms result=json
+[CMS 分类采集] site=cms_wujin tid=58 page=3 videos=20
+2026-11-22 14:27:54.307 [INFO] GET /api/spider/厂长 (3150ms)
+2026-11-22 14:27:54.311 [INFO] GET /api/spider/花卷 (1ms)
+[CMS请求] site=cms_wujin action=detail http=200 cost=836ms result=json
+[CMS 分类采集] site=cms_wujin tid=58 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=823ms result=json
+[CMS 分类采集] site=cms_wujin tid=58 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=753ms result=json
+[CMS 分类采集] site=cms_wujin tid=59 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=824ms result=json
+[CMS 分类采集] site=cms_wujin tid=59 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=842ms result=json
+[CMS 分类采集] site=cms_wujin tid=59 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=872ms result=json
+[CMS 分类采集] site=cms_wujin tid=59 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=749ms result=json
+[CMS 分类采集] site=cms_wujin tid=59 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=997ms result=json
+[CMS 分类采集] site=cms_wujin tid=62 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=784ms result=json
+[CMS 分类采集] site=cms_wujin tid=62 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=790ms result=json
+[CMS 分类采集] site=cms_wujin tid=62 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=774ms result=json
+[CMS 分类采集] site=cms_wujin tid=62 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=543ms result=json
+[CMS 分类采集] site=cms_wujin tid=62 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=750ms result=json
+[CMS 分类采集] site=cms_wujin tid=63 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=866ms result=json
+[CMS 分类采集] site=cms_wujin tid=63 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=723ms result=json
+[CMS 分类采集] site=cms_wujin tid=63 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=764ms result=json
+[CMS 分类采集] site=cms_wujin tid=63 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=540ms result=json
+[CMS 分类采集] site=cms_wujin tid=63 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=522ms result=json
+[CMS 分类采集] site=cms_wujin tid=45 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1325ms result=json
+[CMS 分类采集] site=cms_wujin tid=45 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1273ms result=json
+[CMS 分类采集] site=cms_wujin tid=45 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=759ms result=json
+[CMS 分类采集] site=cms_wujin tid=45 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=777ms result=json
+[CMS 分类采集] site=cms_wujin tid=45 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1974ms result=json
+[CMS 分类采集] site=cms_wujin tid=47 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1717ms result=json
+[CMS 分类采集] site=cms_wujin tid=47 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1358ms result=json
+[CMS 分类采集] site=cms_wujin tid=47 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1457ms result=json
+[CMS 分类采集] site=cms_wujin tid=47 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1182ms result=json
+[CMS 分类采集] site=cms_wujin tid=47 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=897ms result=json
+[CMS 分类采集] site=cms_wujin tid=48 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=899ms result=json
+[CMS 分类采集] site=cms_wujin tid=48 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1184ms result=json
+[CMS 分类采集] site=cms_wujin tid=48 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1237ms result=json
+[CMS 分类采集] site=cms_wujin tid=48 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1131ms result=json
+[CMS 分类采集] site=cms_wujin tid=48 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=777ms result=json
+[CMS 分类采集] site=cms_wujin tid=49 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=842ms result=json
+[CMS 分类采集] site=cms_wujin tid=49 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=847ms result=json
+[CMS 分类采集] site=cms_wujin tid=49 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1117ms result=json
+[CMS 分类采集] site=cms_wujin tid=49 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=1118ms result=json
+[CMS 分类采集] site=cms_wujin tid=49 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=645ms result=json
+[CMS 分类采集] site=cms_wujin tid=50 page=1 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=738ms result=json
+[CMS 分类采集] site=cms_wujin tid=50 page=2 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=716ms result=json
+[CMS 分类采集] site=cms_wujin tid=50 page=3 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=866ms result=json
+[CMS 分类采集] site=cms_wujin tid=50 page=4 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=909ms result=json
+[CMS 分类采集] site=cms_wujin tid=50 page=5 videos=20
+[CMS请求] site=cms_wujin action=detail http=200 cost=514ms result=json
+[CMS 分类采集] site=cms_wujin tid=52 page=1 videos=6
+2026-11-22 14:35:56.687 [INFO] GET /health (1ms)
+2026-11-22 14:35:56.691 [INFO] GET /api/status (4ms)
+2026-11-22 14:36:30.814 [INFO] GET /api/config (0ms)
+2026-11-22 14:39:18.851 [INFO] GET /api/sources (1ms)
+2026-11-22 15:50:10.537 [INFO] GET /health (0ms)
+2026-11-22 15:50:10.538 [INFO] GET /api/status (2ms)
+2026-11-22 15:50:10.545 [INFO] GET /health (0ms)
+2026-11-22 15:58:20.052 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.053 [INFO] 站点已注册: 玩偶 (??玩偶┃4K??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.054 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.054 [INFO] 站点已注册: AiNewGuanYing (??观影┃4K??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.056 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.056 [INFO] 站点已注册: AiQwMkv (??七味┃4K??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.058 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.058 [INFO] 站点已注册: AiNewPianKu (?盘库┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.059 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.059 [INFO] 站点已注册: AiNewHuBan (?虎斑┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.060 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.060 [INFO] 站点已注册: AiNewMuOu (?木偶┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.060 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.061 [INFO] 站点已注册: AiNewDuoDuo (?多多┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.061 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.062 [INFO] 站点已注册: AiNewJuTou (?剧透┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.063 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.063 [INFO] 站点已注册: AiNewLibvio (?立播┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.064 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.065 [INFO] 站点已注册: 原盘 (??原盘┃4K??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.066 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.066 [INFO] 站点已注册: 蜗牛 (??蜗牛┃4K??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.067 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.067 [INFO] 站点已注册: AiPan1Me (?盘迷┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.068 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.068 [INFO] 站点已注册: AiNewYiDong4K (?逸动┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.069 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.069 [INFO] 站点已注册: WexHanXiaoQuan (?韩剧┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.071 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.071 [INFO] 站点已注册: WexAiGuaZi (?瓜子┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.072 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.072 [INFO] 站点已注册: WexAiDuBoKu (?独播┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.073 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.073 [INFO] 站点已注册: WexAiYueYue (?闪电┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.074 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.074 [INFO] 站点已注册: WexAiWenCai (?文才┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.075 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.075 [INFO] 站点已注册: WexFengYe4K (?小枫┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.076 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.076 [INFO] 站点已注册: 賤賤 (?贱片┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.077 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.077 [INFO] 站点已注册: WexAiYiYs (?伊影┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.078 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.078 [INFO] 站点已注册: WexAiReBo (?热播┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.079 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.079 [INFO] 站点已注册: WexAiBoBo (?伯伯┃秒播?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.079 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.080 [INFO] 站点已注册: WexAiIkanBot (?爱看┃采集?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.080 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.081 [INFO] 站点已注册: Emby (?Emby┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.081 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.081 [INFO] 站点已注册: Emby001 (?Emby001┃4K?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.082 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.082 [INFO] 站点已注册: biliys (?哔哩┃影视?) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.083 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.083 [INFO] 站点已注册: bilibili ( ??哔哩┃合集??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.084 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.084 [INFO] 站点已注册: bilixiqu ( ??哔哩┃戏曲??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.085 [INFO] jar 已是 JVM 格式，无需转换: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.085 [INFO] 站点已注册: biliych ( ??哔哩┃歌曲??) -> b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+2026-11-22 15:58:20.085 [INFO] 用户配置已应用：mode=config，站点 30 个（本地加载 30 个）
+2026-11-22 15:58:20.087 [INFO] POST /api/config/save (41ms)
+2026-11-22 15:59:05.876 [INFO] GET /health (1ms)
+2026-11-22 15:59:05.877 [INFO] GET /api/status (1ms)
+2026-11-22 15:59:05.886 [INFO] GET /api/sites (1ms)
+2026-11-22 15:59:57.728 [INFO] GET /api/diagnose/玩偶 (63ms)
+I/JarLoader: invokeInit skipped: java.lang.reflect.InvocationTargetException
+I/JarLoader: invokeProxy success: b0357e154c42ec295ed6c648d1580d6e-jvm.jar
+I/JarLoader: getSpider error site=玩偶, api=csp_AiNewWoggGuard, reason=Could not initialize class com.github.catvod.spider.DexNative <- Exception java.lang.NullPointerException [in thread "pool-1-thread-16"]（该 jar 为 Android 加固/guard 型站点，初始化依赖 Android 运行时与 ARM 原生库 .so，桌面 JVM 无法提供：dex→jar 转换只解决字节码格式，原生层与加固壳仍无法运行）
+2026-11-22 16:00:46.135 [INFO] GET /api/spider/玩偶 (13ms)

@@ -1,0 +1,1393 @@
+
+package com.github.catvod.host.library;
+
+import com.github.catvod.host.SiteBean;
+import com.github.catvod.host.SiteHolder;
+import com.github.catvod.host.SiteRegistry;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * 影视库核心服务。
+ *
+ * 功能：
+ * 1. 遍历所有站点
+ * 2. 遍历所有分类节点
+ * 3. 自动分页采集
+ * 4. 标准化影片数据
+ * 5. 统一分类映射
+ * 6. 跨分类去重
+ * 7. 执行筛选和分页
+ * 8. 本地磁盘缓存
+ * 9. 内存快照查询
+ * 10. 后台异步刷新
+ */
+public class LibraryService {
+
+    private static final int DEFAULT_LIMIT = 20;
+
+    /**
+     * 分页安全上限。
+     */
+    private static final int MAX_PAGES = 5;
+
+    private static final Type VIDEO_LIST_TYPE =
+            new TypeToken<List<Video>>() {}.getType();
+
+    private final SiteRegistry registry;
+    private final CategoryService categoryService;
+    private final FilterService filterService;
+
+    private final Gson gson = new GsonBuilder()
+            .disableHtmlEscaping()
+            .create();
+
+    private final File cacheDir;
+    private final File cacheFile;
+
+    /**
+     * 防止重复启动刷新任务。
+     */
+    private final AtomicBoolean refreshing =
+            new AtomicBoolean(false);
+
+    /**
+     * 当前影视库内存快照。
+     */
+    private volatile List<Video> cachedVideos =
+            Collections.emptyList();
+
+    /**
+     * 最近一次采集错误。
+     */
+    private volatile List<String> lastErrors =
+            Collections.emptyList();
+
+    /**
+     * idle / cached / loading / success / partial / failed / cache_error
+     */
+    private volatile String refreshState = "idle";
+
+    private volatile long refreshStartedAt = 0;
+
+    private volatile long refreshFinishedAt = 0;
+
+    private volatile String refreshMessage = "尚未执行采集";
+
+    /**
+     * 兼容旧构造方法。
+     */
+    public LibraryService(SiteRegistry registry) {
+        this(
+                registry,
+                new File(
+                        System.getProperty(
+                                "tvbox.home",
+                                System.getProperty("user.dir")
+                        ),
+                        "data/library"
+                )
+        );
+    }
+
+    /**
+     * 指定缓存目录。
+     */
+    public LibraryService(
+            SiteRegistry registry,
+            File cacheDir
+    ) {
+
+        this.registry = registry;
+        this.categoryService = new CategoryService();
+        this.filterService = new FilterService();
+
+        this.cacheDir = cacheDir;
+        this.cacheFile = new File(cacheDir, "videos.json");
+
+        initializeCache();
+    }
+
+    /**
+     * 影视库查询结果。
+     */
+    public static class LibraryResult {
+
+        public int page = 1;
+        public int pageSize = 20;
+        public int total = 0;
+        public int pageCount = 0;
+
+        public List<Video> list = new ArrayList<>();
+
+        public FilterService.FilterOptions filters =
+                new FilterService.FilterOptions();
+
+        public List<String> errors = new ArrayList<>();
+    }
+
+    /**
+     * 分页信息。
+     */
+    private static class PageInfo {
+
+        int pageCount = 0;
+        int total = 0;
+        int limit = DEFAULT_LIMIT;
+    }
+
+    /**
+     * 查询影视库。
+     *
+     * 只读取内存快照，不在请求过程中采集影视源。
+     */
+    public LibraryResult query(
+            String category1,
+            String category2,
+            String type,
+            String area,
+            String year,
+            int page,
+            int pageSize
+    ) {
+        return query(
+                category1,
+                category2,
+                type,
+                area,
+                year,
+                page,
+                pageSize,
+                ""
+        );
+    }
+
+    /**
+     * 查询影视库，支持筛选、排序和分页。
+     */
+    public LibraryResult query(
+            String category1,
+            String category2,
+            String type,
+            String area,
+            String year,
+            int page,
+            int pageSize,
+            String sort
+    ) {
+
+        LibraryResult result = new LibraryResult();
+
+        result.page = Math.max(1, page);
+        result.pageSize = Math.max(1, Math.min(pageSize, 100));
+
+        List<Video> allVideos = snapshot();
+
+        result.errors.addAll(lastErrors);
+
+        result.filters = filterService.buildOptions(allVideos);
+
+        List<Video> filtered = filterService.filter(
+                allVideos,
+                category1,
+                category2,
+                type,
+                area,
+                year
+        );
+
+        sortVideos(filtered, sort);
+
+        result.total = filtered.size();
+
+        result.pageCount = result.total == 0
+                ? 0
+                : (result.total + result.pageSize - 1)
+                / result.pageSize;
+
+        long fromLong =
+                (long) (result.page - 1) * result.pageSize;
+
+        if (fromLong < filtered.size()) {
+
+            int fromIndex = (int) fromLong;
+
+            int toIndex = Math.min(
+                    fromIndex + result.pageSize,
+                    filtered.size()
+            );
+
+            result.list = new ArrayList<>(
+                    filtered.subList(fromIndex, toIndex)
+            );
+        }
+
+        return result;
+    }
+
+    /**
+     * 启动时恢复本地缓存。
+     */
+    private void initializeCache() {
+
+        if (!cacheFile.exists()) {
+            refreshMessage = "暂无本地缓存";
+            return;
+        }
+
+        try {
+
+            String json = new String(
+                    Files.readAllBytes(cacheFile.toPath()),
+                    StandardCharsets.UTF_8
+            );
+
+            JsonObject root = JsonParser.parseString(json)
+                    .getAsJsonObject();
+
+            JsonElement videosElement = root.get("videos");
+
+            if (videosElement == null
+                    || !videosElement.isJsonArray()) {
+
+                throw new IllegalStateException(
+                        "缓存缺少 videos 数组"
+                );
+            }
+
+            List<Video> videos = gson.fromJson(
+                    videosElement,
+                    VIDEO_LIST_TYPE
+            );
+
+            if (videos == null) {
+                videos = new ArrayList<>();
+            }
+
+            cachedVideos = Collections.unmodifiableList(
+                    new ArrayList<>(videos)
+            );
+
+            refreshFinishedAt = root.has("updatedAt")
+                    ? root.get("updatedAt").getAsLong()
+                    : 0;
+
+            refreshState = "cached";
+            refreshMessage = "已恢复本地缓存";
+
+            System.out.println(
+                    "[Library] 已恢复缓存，影片数量："
+                            + cachedVideos.size()
+            );
+
+        } catch (Throwable e) {
+
+            refreshState = "cache_error";
+
+            refreshMessage =
+                    "缓存读取失败：" + errorMessage(e);
+
+            System.err.println(
+                    "[Library] " + refreshMessage
+            );
+        }
+    }
+
+    /**
+     * 获取当前内存快照。
+     */
+    private List<Video> snapshot() {
+
+        return new ArrayList<>(cachedVideos);
+    }
+
+    /**
+     * 启动后台全量采集。
+     *
+     * 如果已经有采集任务正在运行，则不重复启动。
+     */
+    public boolean refreshAsync() {
+
+        if (!refreshing.compareAndSet(false, true)) {
+            return false;
+        }
+
+        Thread worker = new Thread(() -> {
+
+            refreshState = "loading";
+
+            refreshStartedAt = System.currentTimeMillis();
+
+            refreshMessage = "正在采集影视源";
+
+            List<String> errors = new ArrayList<>();
+
+            try {
+
+                System.out.println("[Library] 开始全量采集");
+
+                List<Video> videos = loadAllVideos(errors);
+
+                /*
+                 * 只要存在采集错误，就不更新正式缓存。
+                 *
+                 * 如果已有旧缓存，继续使用旧缓存。
+                 * 如果是首次采集，则允许临时展示部分数据，
+                 * 但不保存为正式缓存。
+                 */
+                if (!errors.isEmpty()) {
+
+                    lastErrors = Collections.unmodifiableList(
+                            new ArrayList<>(errors)
+                    );
+
+                    refreshState = "failed";
+
+                    refreshMessage =
+                            "本次采集存在错误，未更新正式缓存";
+
+                    if (cachedVideos.isEmpty()
+                            && !videos.isEmpty()) {
+
+                        cachedVideos =
+                                Collections.unmodifiableList(
+                                        new ArrayList<>(videos)
+                                );
+
+                        refreshMessage +=
+                                "，当前展示的是临时采集结果";
+                    }
+
+                    System.err.println(
+                            "[Library] " + refreshMessage
+                    );
+
+                    return;
+                }
+
+                /*
+                 * 空结果不允许覆盖已有数据。
+                 */
+                if (videos.isEmpty()) {
+
+                    refreshState = "failed";
+
+                    refreshMessage =
+                            "本次采集结果为空，未更新缓存";
+
+                    lastErrors = Collections.emptyList();
+
+                    System.err.println(
+                            "[Library] " + refreshMessage
+                    );
+
+                    return;
+                }
+
+                /*
+                 * 先保存磁盘缓存。
+                 * 保存成功后再替换内存快照。
+                 */
+                saveCache(videos, errors);
+
+                cachedVideos = Collections.unmodifiableList(
+                        new ArrayList<>(videos)
+                );
+
+                lastErrors = Collections.emptyList();
+
+                refreshFinishedAt = System.currentTimeMillis();
+
+                refreshState = "success";
+
+                refreshMessage = "采集完成";
+
+                System.out.println(
+                        "[Library] 采集完成，影片数量："
+                                + videos.size()
+                );
+
+            } catch (Throwable e) {
+
+                refreshState = "failed";
+
+                refreshMessage =
+                        "采集失败：" + errorMessage(e);
+
+                System.err.println(
+                        "[Library] " + refreshMessage
+                );
+
+            } finally {
+
+                refreshing.set(false);
+            }
+
+        }, "library-refresh");
+
+        worker.setDaemon(true);
+
+        worker.start();
+
+        return true;
+    }
+
+    /**
+     * 原子保存缓存。
+     */
+    private void saveCache(
+            List<Video> videos,
+            List<String> errors
+    ) throws Exception {
+
+        if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+
+            throw new IllegalStateException(
+                    "无法创建缓存目录："
+                            + cacheDir.getAbsolutePath()
+            );
+        }
+
+        JsonObject root = new JsonObject();
+
+        root.addProperty("version", 1);
+
+        root.addProperty(
+                "updatedAt",
+                System.currentTimeMillis()
+        );
+
+        root.add(
+                "videos",
+                gson.toJsonTree(videos)
+        );
+
+        root.add(
+                "errors",
+                gson.toJsonTree(errors)
+        );
+
+        byte[] bytes = gson.toJson(root)
+                .getBytes(StandardCharsets.UTF_8);
+
+        File tempFile = new File(
+                cacheDir,
+                "videos.json.tmp"
+        );
+
+        try (FileOutputStream output =
+                     new FileOutputStream(tempFile)) {
+
+            output.write(bytes);
+
+            output.flush();
+
+            output.getFD().sync();
+        }
+
+        try {
+
+            Files.move(
+                    tempFile.toPath(),
+                    cacheFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE
+            );
+
+        } catch (Exception atomicError) {
+
+            Files.move(
+                    tempFile.toPath(),
+                    cacheFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+        }
+    }
+
+    /**
+     * 获取影视库采集状态。
+     */
+    public JsonObject statusJson() {
+
+        JsonObject result = new JsonObject();
+
+        result.addProperty("state", refreshState);
+
+        result.addProperty(
+                "refreshing",
+                refreshing.get()
+        );
+
+        result.addProperty(
+                "videoCount",
+                cachedVideos.size()
+        );
+
+        result.addProperty(
+                "cacheExists",
+                cacheFile.exists()
+        );
+
+        result.addProperty(
+                "cacheFile",
+                cacheFile.getAbsolutePath()
+        );
+
+        result.addProperty(
+                "refreshStartedAt",
+                refreshStartedAt
+        );
+
+        result.addProperty(
+                "refreshFinishedAt",
+                refreshFinishedAt
+        );
+
+        result.addProperty(
+                "message",
+                refreshMessage
+        );
+
+        JsonArray errors = new JsonArray();
+
+        for (String error : lastErrors) {
+            errors.add(error);
+        }
+
+        result.add("errors", errors);
+
+        return result;
+    }
+
+    /**
+     * 获取所有已注册站点的影片。
+     */
+    public List<Video> loadAllVideos(List<String> errors) {
+
+        List<Video> result = new ArrayList<>();
+
+        if (errors == null) {
+            errors = new ArrayList<>();
+        }
+
+        if (registry == null) {
+            errors.add("影视源注册中心不存在");
+            return result;
+        }
+
+        List<SiteHolder> holders = registry.all();
+
+        if (holders == null || holders.isEmpty()) {
+            errors.add("没有已注册的影视源");
+            return result;
+        }
+
+        /*
+         * 使用 LinkedHashMap：
+         * 1. 保留原始采集顺序
+         * 2. 避免不同分类重复收录同一影片
+         */
+        Map<String, Video> uniqueVideos =
+                new LinkedHashMap<>();
+
+        for (SiteHolder holder : holders) {
+
+            if (holder == null) {
+                continue;
+            }
+
+            try {
+
+                List<Video> siteVideos = loadSiteVideos(
+                        holder,
+                        errors
+                );
+
+                for (Video video : siteVideos) {
+                    addOrMerge(uniqueVideos, video);
+                }
+
+            } catch (Throwable e) {
+
+                errors.add(
+                        "站点加载失败：" + siteName(holder)
+                                + "，原因：" + errorMessage(e)
+                );
+            }
+        }
+
+        result.addAll(uniqueVideos.values());
+
+        return result;
+    }
+
+    /**
+     * 获取单个站点的全部影片。
+     */
+    private List<Video> loadSiteVideos(
+            SiteHolder holder,
+            List<String> errors
+    ) {
+
+        List<Video> result = new ArrayList<>();
+
+        SiteBean bean = holder.getBean();
+
+        if (bean == null) {
+            errors.add("站点配置不存在");
+            return result;
+        }
+
+        String sourceKey = safe(bean.key);
+
+        String sourceName = safe(bean.name);
+
+        String siteKey = sourceKey;
+
+        // 1. 获取站点分类
+        String homeJson = holder.doAction(
+                "home",
+                new HashMap<String, String>()
+        );
+
+        CategoryService.CategoryTree tree =
+                categoryService.parse(
+                        homeJson,
+                        sourceKey,
+                        sourceName,
+                        siteKey
+                );
+
+        if (tree == null
+                || tree.categories == null
+                || tree.categories.isEmpty()) {
+
+            errors.add(
+                    "站点没有可用分类：" + sourceName
+            );
+
+            return result;
+        }
+
+        /*
+         * 2. 收集全部分类节点。
+         *
+         * 不只收集叶子分类。
+         * 父分类本身也可能有影片。
+         */
+        List<CategoryService.Category> categories =
+                new ArrayList<>();
+
+        for (CategoryService.Category category : tree.categories) {
+
+            collectAllCategories(
+                    category,
+                    categories
+            );
+        }
+
+        if (categories.isEmpty()) {
+
+            errors.add(
+                    "站点没有可采集分类：" + sourceName
+            );
+
+            return result;
+        }
+
+        // 3. 逐分类分页采集
+        for (CategoryService.Category category : categories) {
+
+            if (category == null
+                    || safe(category.id).isEmpty()) {
+                continue;
+            }
+
+            try {
+
+                List<Video> categoryVideos =
+                        loadCategoryVideos(
+                                holder,
+                                category,
+                                tree,
+                                sourceKey,
+                                sourceName,
+                                siteKey
+                        );
+
+                result.addAll(categoryVideos);
+
+            } catch (Throwable e) {
+
+                errors.add(
+                        "分类获取失败：" + sourceName
+                                + " / " + category.name
+                                + "，原因：" + errorMessage(e)
+                );
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 获取某个分类的全部分页数据。
+     */
+    private List<Video> loadCategoryVideos(
+            SiteHolder holder,
+            CategoryService.Category category,
+            CategoryService.CategoryTree tree,
+            String sourceKey,
+            String sourceName,
+            String siteKey
+    ) {
+
+        List<Video> result = new ArrayList<>();
+
+        int page = 1;
+
+        int maxPages = MAX_PAGES;
+
+        while (page <= maxPages) {
+
+            Map<String, String> params = new HashMap<>();
+
+            params.put("tid", category.id);
+
+            params.put("pg", String.valueOf(page));
+
+            params.put("filter", "false");
+
+            params.put("extend", "{}");
+
+            String json = holder.doAction(
+                    "category",
+                    params
+            );
+
+            if (json == null || json.trim().isEmpty()) {
+                break;
+            }
+
+            PageInfo pageInfo = readPageInfo(json);
+
+            /*
+             * 使用真实 pagecount。
+             * 如果上游返回 9999，则优先使用 total / limit 计算。
+             */
+            if (page == 1) {
+                maxPages = calculateMaxPages(pageInfo);
+            }
+
+            List<Video> videos =
+                    VideoNormalizer.normalizeList(
+                            json,
+                            sourceKey,
+                            sourceName,
+                            siteKey
+                    );
+
+            // 空页表示采集结束
+            if (videos.isEmpty()) {
+                break;
+            }
+
+            // 先补齐原始分类信息，再执行分类映射
+            for (Video video : videos) {
+
+                if (video.sourceCategoryId.isEmpty()) {
+                    video.sourceCategoryId = category.id;
+                }
+
+                if (video.sourceParentCategoryId.isEmpty()) {
+                    video.sourceParentCategoryId =
+                            safe(category.parentId);
+                }
+
+                if (video.sourceCategoryName.isEmpty()) {
+                    video.sourceCategoryName = category.name;
+                }
+
+                categoryService.mapVideo(video, tree);
+
+                /*
+                 * 分类树映射失败时，至少保留当前分类。
+                 */
+                if (video.category1.isEmpty()
+                        && video.category2.isEmpty()) {
+
+                    if (category.parentId == null
+                            || category.parentId.trim().isEmpty()
+                            || "0".equals(category.parentId)) {
+
+                        video.category1 = category.name;
+
+                    } else {
+
+                        video.category2 = category.name;
+                    }
+                }
+            }
+
+            result.addAll(videos);
+
+            // 已经到达最后一页
+            if (page >= maxPages) {
+                break;
+            }
+
+            /*
+             * 未明确返回分页信息时，
+             * 短页也可以作为最后一页的判断依据。
+             */
+            if (pageInfo.pageCount <= 0
+                    && pageInfo.total <= 0
+                    && videos.size() < pageInfo.limit) {
+
+                break;
+            }
+
+            page++;
+        }
+
+        return result;
+    }
+
+    /**
+     * 解析 CMS 分页信息。
+     */
+    private PageInfo readPageInfo(String json) {
+
+        PageInfo info = new PageInfo();
+
+        try {
+
+            JsonElement root = JsonParser.parseString(json);
+
+            if (!root.isJsonObject()) {
+                return info;
+            }
+
+            JsonObject object = root.getAsJsonObject();
+
+            info.pageCount = intValue(
+                    object,
+                    "pagecount",
+                    "page_count",
+                    "pageCount"
+            );
+
+            info.total = intValue(
+                    object,
+                    "total",
+                    "total_count",
+                    "totalCount"
+            );
+
+            int limit = intValue(
+                    object,
+                    "limit",
+                    "pagesize",
+                    "pageSize"
+            );
+
+            if (limit > 0) {
+                info.limit = limit;
+            }
+
+        } catch (Exception ignored) {
+            // 分页信息解析失败时使用安全默认值
+        }
+
+        return info;
+    }
+
+    /**
+     * 计算安全分页上限。
+     */
+    private int calculateMaxPages(PageInfo info) {
+
+        if (info == null) {
+            return MAX_PAGES;
+        }
+
+        /*
+         * pagecount 正常时直接使用。
+         */
+        if (info.pageCount > 0 && info.pageCount < 9999) {
+
+            return Math.min(
+                    info.pageCount,
+                    MAX_PAGES
+            );
+        }
+
+        /*
+         * pagecount 缺失或为 9999 时，
+         * 根据 total 和 limit 计算真实页数。
+         */
+        if (info.total > 0 && info.limit > 0) {
+
+            int calculated =
+                    (info.total + info.limit - 1)
+                            / info.limit;
+
+            return Math.max(
+                    1,
+                    Math.min(calculated, MAX_PAGES)
+            );
+        }
+
+        /*
+         * 无法确定总页数时采用安全上限。
+         * 采集过程中遇到空页会提前结束。
+         */
+        return MAX_PAGES;
+    }
+
+    /**
+     * 从 JSON 对象读取整数。
+     */
+    private int intValue(
+            JsonObject object,
+            String... keys
+    ) {
+
+        for (String key : keys) {
+
+            JsonElement value = object.get(key);
+
+            if (value == null || value.isJsonNull()) {
+                continue;
+            }
+
+            try {
+                return value.getAsInt();
+            } catch (Exception ignored) {
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * 递归收集分类树中的全部节点。
+     */
+    private void collectAllCategories(
+            CategoryService.Category category,
+            List<CategoryService.Category> result
+    ) {
+
+        if (category == null) {
+            return;
+        }
+
+        result.add(category);
+
+        if (category.children == null
+                || category.children.isEmpty()) {
+            return;
+        }
+
+        for (CategoryService.Category child : category.children) {
+
+            collectAllCategories(
+                    child,
+                    result
+            );
+        }
+    }
+
+    /**
+     * 去重并合并影片信息。
+     */
+    private void addOrMerge(
+            Map<String, Video> videos,
+            Video incoming
+    ) {
+
+        if (incoming == null || incoming.name.isEmpty()) {
+            return;
+        }
+
+        String key = videoKey(incoming);
+
+        Video existing = videos.get(key);
+
+        if (existing == null) {
+            videos.put(key, incoming);
+            return;
+        }
+
+        /*
+         * 重复影片优先保留已有记录，
+         * 但将已有记录缺失的字段补齐。
+         */
+        fillIfEmpty(existing, incoming);
+    }
+
+    /**
+     * 生成影片唯一键。
+     */
+    private String videoKey(Video video) {
+
+        String source = safe(video.sourceKey)
+                + "|"
+                + safe(video.siteKey);
+
+        String id = safe(video.id);
+
+        if (!id.isEmpty()) {
+            return source + "|" + id;
+        }
+
+        return source
+                + "|"
+                + safe(video.name)
+                + "|"
+                + safe(video.pic);
+    }
+
+    /**
+     * 使用重复记录补齐缺失字段。
+     */
+    private void fillIfEmpty(
+            Video target,
+            Video source
+    ) {
+
+        if (target == null || source == null) {
+            return;
+        }
+
+        if (target.pic.isEmpty()) {
+            target.pic = source.pic;
+        }
+
+        if (target.remarks.isEmpty()) {
+            target.remarks = source.remarks;
+        }
+
+        if (target.category1.isEmpty()) {
+            target.category1 = source.category1;
+        }
+
+        if (target.category2.isEmpty()) {
+            target.category2 = source.category2;
+        }
+
+        if (target.sourceCategoryId.isEmpty()) {
+            target.sourceCategoryId = source.sourceCategoryId;
+        }
+
+        if (target.sourceParentCategoryId.isEmpty()) {
+            target.sourceParentCategoryId =
+                    source.sourceParentCategoryId;
+        }
+
+        if (target.sourceCategoryName.isEmpty()) {
+            target.sourceCategoryName = source.sourceCategoryName;
+        }
+
+        if (target.type.isEmpty()) {
+            target.type = source.type;
+        }
+
+        if (target.area.isEmpty()) {
+            target.area = source.area;
+        }
+
+        if (target.year.isEmpty()) {
+            target.year = source.year;
+        }
+
+        if (target.raw == null || target.raw.size() == 0) {
+
+            target.raw = source.raw == null
+                    ? new JsonObject()
+                    : source.raw.deepCopy();
+        }
+    }
+
+    /**
+     * 查询动态筛选选项。
+     */
+    public FilterService.FilterOptions filters() {
+
+        List<Video> videos = snapshot();
+
+        return filterService.buildOptions(videos);
+    }
+
+    /**
+     * 对筛选后的影片排序。
+     * 不修改原始缓存列表。
+     */
+    private void sortVideos(List<Video> videos, String sort) {
+
+        if (videos == null || videos.size() < 2 || sort == null) {
+            return;
+        }
+
+        Comparator<Video> comparator;
+
+        if ("year_desc".equalsIgnoreCase(sort.trim())) {
+            comparator = (left, right) ->
+                    compareYears(left.year, right.year, true);
+
+        } else if ("year_asc".equalsIgnoreCase(sort.trim())) {
+            comparator = (left, right) ->
+                    compareYears(left.year, right.year, false);
+
+        } else if ("name_asc".equalsIgnoreCase(sort.trim())) {
+            comparator = (left, right) ->
+                    safe(left.name).compareToIgnoreCase(safe(right.name));
+
+        } else if ("name_desc".equalsIgnoreCase(sort.trim())) {
+            comparator = (left, right) ->
+                    safe(right.name).compareToIgnoreCase(safe(left.name));
+
+        } else {
+            return;
+        }
+
+        videos.sort(comparator);
+    }
+
+    /**
+     * 比较年份，无法识别的年份始终排在有效年份之后。
+     */
+    private int compareYears(String left, String right, boolean descending) {
+
+        Integer yearLeft = parseSortYear(left);
+        Integer yearRight = parseSortYear(right);
+
+        if (yearLeft == null && yearRight == null) {
+            return 0;
+        }
+
+        if (yearLeft == null) {
+            return 1;
+        }
+
+        if (yearRight == null) {
+            return -1;
+        }
+
+        return descending
+                ? Integer.compare(yearRight, yearLeft)
+                : Integer.compare(yearLeft, yearRight);
+    }
+
+    /**
+     * 解析四位数字年份。
+     */
+    private Integer parseSortYear(String value) {
+
+        String text = safe(value);
+
+        if (!text.matches("\\d{4}")) {
+            return null;
+        }
+
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+    /**
+     * 获取站点名称。
+     */
+    private String siteName(SiteHolder holder) {
+
+        try {
+
+            SiteBean bean = holder.getBean();
+
+            if (bean != null && !safe(bean.name).isEmpty()) {
+                return bean.name;
+            }
+
+        } catch (Throwable ignored) {
+        }
+
+        return "未知站点";
+    }
+
+    /**
+     * 获取异常信息。
+     */
+    private String errorMessage(Throwable error) {
+
+        if (error == null) {
+            return "未知错误";
+        }
+
+        String message = error.getMessage();
+
+        return message == null || message.trim().isEmpty()
+                ? error.getClass().getSimpleName()
+                : message;
+    }
+
+    /**
+     * 安全处理字符串。
+     */
+    private String safe(String value) {
+
+        return value == null ? "" : value.trim();
+    }
+
+    /**
+     * 将查询结果转换为 JSON。
+     */
+    public JsonObject toJson(LibraryResult result) {
+
+        JsonObject root = new JsonObject();
+
+        root.addProperty("page", result.page);
+
+        root.addProperty("pageSize", result.pageSize);
+
+        root.addProperty("total", result.total);
+
+        root.addProperty("pageCount", result.pageCount);
+
+        JsonArray list = new JsonArray();
+
+        for (Video video : result.list) {
+
+            JsonObject item = new JsonObject();
+
+            item.addProperty("id", video.id);
+
+            item.addProperty("name", video.name);
+
+            item.addProperty("pic", video.pic);
+
+            item.addProperty("remarks", video.remarks);
+
+            item.addProperty("category1", video.category1);
+
+            item.addProperty("category2", video.category2);
+
+            item.addProperty("type", video.type);
+
+            item.addProperty("area", video.area);
+
+            item.addProperty("year", video.year);
+
+            item.addProperty("sourceKey", video.sourceKey);
+
+            item.addProperty("sourceName", video.sourceName);
+
+            item.addProperty("siteKey", video.siteKey);
+
+            item.addProperty(
+                    "sourceCategoryId",
+                    video.sourceCategoryId
+            );
+
+            item.addProperty(
+                    "sourceParentCategoryId",
+                    video.sourceParentCategoryId
+            );
+
+            item.addProperty(
+                    "sourceCategoryName",
+                    video.sourceCategoryName
+            );
+
+            item.add(
+                    "raw",
+                    video.raw == null
+                            ? new JsonObject()
+                            : video.raw
+            );
+
+            list.add(item);
+        }
+
+        root.add("list", list);
+
+        // 筛选选项
+        JsonObject filters = new JsonObject();
+
+        filters.add(
+                "category1",
+                strings(result.filters.category1)
+        );
+
+        filters.add(
+                "category2",
+                strings(result.filters.category2)
+        );
+
+        filters.add(
+                "types",
+                strings(result.filters.types)
+        );
+
+        filters.add(
+                "areas",
+                strings(result.filters.areas)
+        );
+
+        filters.add(
+                "years",
+                strings(result.filters.years)
+        );
+
+        root.add("filters", filters);
+
+        // 站点错误信息
+        JsonArray errors = new JsonArray();
+
+        for (String error : result.errors) {
+            errors.add(error);
+        }
+
+        root.add("errors", errors);
+
+        return root;
+    }
+
+    /**
+     * 字符串列表转 JSON 数组。
+     */
+    private JsonArray strings(List<String> values) {
+
+        JsonArray array = new JsonArray();
+
+        if (values == null) {
+            return array;
+        }
+
+        for (String value : values) {
+            array.add(value);
+        }
+
+        return array;
+    }
+}

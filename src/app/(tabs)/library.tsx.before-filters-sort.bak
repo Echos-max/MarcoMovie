@@ -1,0 +1,725 @@
+
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ActivityIndicator,
+    ScrollView,
+} from "react-native";
+import { SearchIcon, SendArrowIcon, Dialog, Button } from "panelui-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
+import { Image } from "expo-image";
+import { GlassView } from "expo-glass-effect";
+import { useRouter } from "expo-router";
+import {
+    marcoApi,
+    type LibraryVideo,
+    type LibraryFilters,
+} from "../../services/marcoApi";
+import React from "react";
+
+const PAGE_SIZE = 20;
+
+const EMPTY_FILTERS: LibraryFilters = {
+    category1: [],
+    category2: [],
+    types: [],
+    areas: [],
+    years: [],
+};
+
+export default function MovieScreen() {
+    const router = useRouter();
+
+    // 一级分类
+    const [parentTabs, setParentTabs] = useState<string[]>([]);
+    const [activeParent, setActiveParent] = useState("");
+
+    // 二级分类
+    const [tabs, setTabs] = useState<string[]>([]);
+    const [activeTab, setActiveTab] = useState("");
+
+    // 筛选选项
+    const [filters, setFilters] = useState<LibraryFilters>(EMPTY_FILTERS);
+
+    // 真实影视列表
+    const [movies, setMovies] = useState<LibraryVideo[]>([]);
+
+    // 分页信息
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageCount, setPageCount] = useState(1);
+    const [total, setTotal] = useState(0);
+
+    // 加载状态
+    const [loadingTabs, setLoadingTabs] = useState(true);
+    const [loadingMovies, setLoadingMovies] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    const [error, setError] = useState("");
+
+    // 初始化：获取统一影视库筛选选项
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchFilters = async () => {
+            try {
+                setLoadingTabs(true);
+                setError("");
+
+                const result = await marcoApi.getLibraryFilters();
+
+                if (cancelled) return;
+
+                setFilters(result);
+
+                const categories = result.category1 ?? [];
+                const subCategories = result.category2 ?? [];
+
+                setParentTabs(categories);
+                setTabs(subCategories);
+
+                if (categories.length > 0) {
+                    setActiveParent(categories[0]);
+                } else {
+                    setActiveParent("");
+                }
+
+                if (subCategories.length > 0) {
+                    setActiveTab("");
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "获取影视分类失败"
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingTabs(false);
+                }
+            }
+        };
+
+        fetchFilters();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // 获取统一影视库影片
+    useEffect(() => {
+        if (!activeParent) return;
+
+        let cancelled = false;
+
+        const fetchMovies = async () => {
+            try {
+                setLoadingMovies(true);
+                setError("");
+
+                setMovies([]);
+                setCurrentPage(1);
+                setPageCount(1);
+                setTotal(0);
+
+                const result = await marcoApi.getLibraryList({
+                    category1: activeParent,
+                    category2: activeTab || undefined,
+                    page: 1,
+                    pageSize: PAGE_SIZE,
+                });
+
+                if (cancelled) return;
+
+                setMovies(result.list ?? []);
+                setCurrentPage(result.page ?? 1);
+                setPageCount(result.pageCount ?? 1);
+                setTotal(result.total ?? 0);
+            } catch (err) {
+                if (!cancelled) {
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "获取影视列表失败"
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingMovies(false);
+                }
+            }
+        };
+
+        fetchMovies();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeParent, activeTab]);
+
+    // 点击一级分类
+    const handleParentPress = (category: string) => {
+        setActiveParent(category);
+        setActiveTab("");
+    };
+
+    // 点击二级分类
+    const handleTabPress = (category: string) => {
+        setActiveTab((previous) =>
+            previous === category ? "" : category
+        );
+    };
+
+    // 加载下一页
+    const handleLoadMore = async () => {
+        if (
+            !activeParent ||
+            loadingMore ||
+            loadingMovies ||
+            currentPage >= pageCount
+        ) {
+            return;
+        }
+
+        try {
+            setLoadingMore(true);
+            setError("");
+
+            const nextPage = currentPage + 1;
+
+            const result = await marcoApi.getLibraryList({
+                category1: activeParent,
+                category2: activeTab || undefined,
+                page: nextPage,
+                pageSize: PAGE_SIZE,
+            });
+
+            const newMovies = result.list ?? [];
+
+            setMovies((previous) => {
+                const existingIds = new Set(
+                    previous.map(
+                        (item) => `${item.siteKey}:${item.id}`
+                    )
+                );
+
+                return [
+                    ...previous,
+                    ...newMovies.filter(
+                        (item) =>
+                            !existingIds.has(
+                                `${item.siteKey}:${item.id}`
+                            )
+                    ),
+                ];
+            });
+
+            setCurrentPage(result.page ?? nextPage);
+            setPageCount(result.pageCount ?? pageCount);
+            setTotal(result.total ?? total);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "加载更多影视失败"
+            );
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    // 点击影视：传递真实影片 ID 和对应站点
+    const handleMoviePress = (movie: LibraryVideo) => {
+        router.push({
+            pathname: "/detail/[id]",
+            params: {
+                id: movie.id,
+                siteKey: movie.siteKey,
+            },
+        });
+    };
+
+    if (loadingTabs) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.fullScreenLoading}>
+                    <ActivityIndicator size="large" color="#007AFF" />
+                    <Text style={styles.loadingText}>
+                        正在加载影视分类...
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    return (
+        <SafeAreaView style={styles.container}>
+            {/* 顶部搜索区域 */}
+            <View style={styles.header}>
+                <GlassView style={styles.headerLeft}>
+                    <Dialog>
+                        <Dialog.Trigger>
+                            <Button variant="ghost">
+                                <View style={styles.logoContent}>
+                                    <Text style={styles.logoIcon}>🤖</Text>
+                                    <Text style={styles.logoText}>多多4K</Text>
+                                </View>
+                            </Button>
+                        </Dialog.Trigger>
+
+                        <Dialog.Content>
+                            <Dialog.Title>影视源</Dialog.Title>
+                            <Dialog.Description>
+                                当前使用统一影视库
+                            </Dialog.Description>
+                            <Dialog.Footer>
+                                <Dialog.Close>
+                                    <Button size="sm" variant="ghost">
+                                        关闭
+                                    </Button>
+                                </Dialog.Close>
+                            </Dialog.Footer>
+                        </Dialog.Content>
+                    </Dialog>
+                </GlassView>
+
+                <GlassView style={styles.headerRight}>
+                    <View style={styles.headerActions}>
+                        <TouchableOpacity style={styles.iconBtn}>
+                            <SendArrowIcon size={20} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.iconBtn}
+                            onPress={() =>
+                                router.push({
+                                    pathname: "/search/[id]",
+                                    params: { id: "search" },
+                                })
+                            }
+                        >
+                            <SearchIcon size={20} />
+                        </TouchableOpacity>
+                    </View>
+                </GlassView>
+            </View>
+
+            {/* 一级分类 */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.tabScroll}
+                contentContainerStyle={styles.tabContent}
+            >
+                {parentTabs.map((category) => {
+                    const active = activeParent === category;
+
+                    return (
+                        <TouchableOpacity
+                            key={category}
+                            style={styles.tabItem}
+                            onPress={() => handleParentPress(category)}
+                        >
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    active && styles.tabTextActive,
+                                ]}
+                            >
+                                {category}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+
+            {/* 二级分类 */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.tabScroll}
+                contentContainerStyle={styles.tabContent}
+            >
+                <TouchableOpacity
+                    style={styles.tabItem}
+                    onPress={() => setActiveTab("")}
+                >
+                    <Text
+                        style={[
+                            styles.tabText,
+                            !activeTab && styles.tabTextActive,
+                        ]}
+                    >
+                        全部
+                    </Text>
+                </TouchableOpacity>
+
+                {tabs.map((category) => {
+                    const active = activeTab === category;
+
+                    return (
+                        <TouchableOpacity
+                            key={category}
+                            style={styles.tabItem}
+                            onPress={() => handleTabPress(category)}
+                        >
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    active && styles.tabTextActive,
+                                ]}
+                            >
+                                {category}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+
+            {/* 影视列表 */}
+            <ScrollView
+                style={styles.listScroll}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* 当前分类及数量 */}
+                {activeParent !== "" && (
+                    <View style={styles.categoryInfo}>
+                        <Text style={styles.categoryTitle}>
+                            {activeTab || activeParent}
+                        </Text>
+
+                        <Text style={styles.categoryCount}>
+                            共 {total} 部
+                        </Text>
+                    </View>
+                )}
+
+                {/* 加载状态 */}
+                {loadingMovies && (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator
+                            size="large"
+                            color="#007AFF"
+                        />
+                        <Text style={styles.loadingText}>
+                            正在加载影视...
+                        </Text>
+                    </View>
+                )}
+
+                {/* 错误提示 */}
+                {!!error && (
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>
+                            {error}
+                        </Text>
+                    </View>
+                )}
+
+                {/* 影视列表 */}
+                {!loadingMovies && movies.length > 0 && (
+                    <View style={styles.movieGrid}>
+                        {movies.map((movie) => (
+                            <View
+                                key={`${movie.siteKey}:${movie.id}`}
+                                style={styles.movieItem}
+                            >
+                                <TouchableOpacity
+                                    activeOpacity={0.8}
+                                    onPress={() => handleMoviePress(movie)}
+                                >
+                                    {movie.pic ? (
+                                        <Image
+                                            source={{ uri: movie.pic }}
+                                            style={styles.moviePoster}
+                                            contentFit="cover"
+                                            transition={200}
+                                        />
+                                    ) : (
+                                        <View
+                                            style={[
+                                                styles.moviePoster,
+                                                styles.posterPlaceholder,
+                                            ]}
+                                        >
+                                            <Text style={styles.placeholderText}>
+                                                暂无海报
+                                            </Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+
+                                <Text
+                                    style={styles.movieTitle}
+                                    numberOfLines={1}
+                                >
+                                    {movie.name}
+                                </Text>
+
+                                <Text
+                                    style={styles.movieRemarks}
+                                    numberOfLines={1}
+                                >
+                                    {movie.remarks || "暂无更新信息"}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {/* 空数据 */}
+                {!loadingMovies &&
+                    !error &&
+                    activeParent !== "" &&
+                    movies.length === 0 && (
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>
+                                当前分类暂无影视数据
+                            </Text>
+                        </View>
+                    )}
+
+                {/* 加载更多 */}
+                {!loadingMovies &&
+                    movies.length > 0 &&
+                    currentPage < pageCount && (
+                        <TouchableOpacity
+                            style={styles.loadMoreButton}
+                            onPress={handleLoadMore}
+                            disabled={loadingMore}
+                        >
+                            {loadingMore ? (
+                                <ActivityIndicator color="#007AFF" />
+                            ) : (
+                                <Text style={styles.loadMoreText}>
+                                    加载更多
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    )}
+
+                {movies.length > 0 &&
+                    currentPage >= pageCount && (
+                        <Text style={styles.endText}>
+                            已经到底了
+                        </Text>
+                    )}
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+
+    header: {
+        width: "100%",
+        height: "10%",
+        padding: "2%",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+
+    headerLeft: {
+        width: "30%",
+        height: "100%",
+        borderRadius: 15,
+    },
+
+    headerRight: {
+        width: "30%",
+        height: "100%",
+        borderRadius: 15,
+    },
+
+    logoContent: {
+        width: "100%",
+        height: "80%",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    logoIcon: {
+        fontSize: 18,
+        marginRight: 15,
+    },
+
+    logoText: {
+        fontSize: 16,
+        fontWeight: "bold",
+    },
+
+    headerActions: {
+        width: "100%",
+        height: "80%",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    iconBtn: {
+        marginLeft: 15,
+    },
+
+    tabScroll: {
+        flexGrow: 0,
+        paddingVertical: 1,
+    },
+
+    tabContent: {
+        paddingHorizontal: 10,
+    },
+
+    tabItem: {
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        alignItems: "center",
+    },
+
+    tabText: {
+        fontSize: 15,
+        color: "#666",
+        marginBottom: 4,
+    },
+
+    tabTextActive: {
+        color: "#000",
+        fontWeight: "bold",
+        fontSize: 20,
+    },
+
+    listScroll: {
+        flex: 1,
+    },
+
+    listContent: {
+        paddingBottom: 30,
+    },
+
+    categoryInfo: {
+        paddingHorizontal: 15,
+        paddingTop: 15,
+        paddingBottom: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+
+    categoryTitle: {
+        fontSize: 17,
+        fontWeight: "bold",
+    },
+
+    categoryCount: {
+        fontSize: 12,
+        color: "#999",
+    },
+
+    movieGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        padding: 5,
+    },
+
+    movieItem: {
+        width: "33.33%",
+        padding: 5,
+    },
+
+    moviePoster: {
+        width: "100%",
+        aspectRatio: 2 / 3,
+        borderRadius: 8,
+        backgroundColor: "#333",
+    },
+
+    posterPlaceholder: {
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    placeholderText: {
+        color: "#aaa",
+        fontSize: 12,
+    },
+
+    movieTitle: {
+        fontSize: 13,
+        marginTop: 6,
+        fontWeight: "500",
+    },
+
+    movieRemarks: {
+        fontSize: 12,
+        color: "#ff9500",
+        marginTop: 3,
+    },
+
+    loadingContainer: {
+        padding: 40,
+        alignItems: "center",
+    },
+
+    loadingText: {
+        marginTop: 10,
+        color: "#999",
+    },
+
+    errorContainer: {
+        padding: 20,
+        alignItems: "center",
+    },
+
+    errorText: {
+        color: "#ff4d4f",
+        textAlign: "center",
+    },
+
+    emptyContainer: {
+        padding: 40,
+        alignItems: "center",
+    },
+
+    emptyText: {
+        color: "#999",
+    },
+
+    loadMoreButton: {
+        marginHorizontal: 20,
+        marginTop: 15,
+        marginBottom: 20,
+        paddingVertical: 14,
+        borderRadius: 10,
+        backgroundColor: "rgba(0,122,255,0.1)",
+        alignItems: "center",
+    },
+
+    loadMoreText: {
+        color: "#007AFF",
+        fontSize: 14,
+        fontWeight: "600",
+    },
+
+    endText: {
+        textAlign: "center",
+        color: "#999",
+        fontSize: 12,
+        paddingVertical: 20,
+    },
+
+    fullScreenLoading: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+});

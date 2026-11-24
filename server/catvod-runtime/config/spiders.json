@@ -1,0 +1,7 @@
+
+{
+  "port": 9978,
+  "bind": "0.0.0.0",
+  "_comment": "jar 字段支持本地路径、HTTP URL 或 URL;MD5。dex 格式 jar 会自动转换为 JVM jar。",
+  "sites": []
+}
